@@ -28,7 +28,7 @@ Luma/
 │   │   │   ├── augmentations.rs     # Data augmentation logic
 │   │   │   ├── loaders.rs           # Data loading logic
 │   │   │   ├── multi_modal.rs       # Multi-modal data handling
-│   │   │   └── preprocessors.rs     # Data preprocessing (has tests)
+│   │   │   └── preprocessors.rs     # Data preprocessing
 │   │   ├── engine/
 │   │   │   ├── mod.rs
 │   │   │   ├── accelerators.rs      # Accelerator management (e.g., CPU/GPU)
@@ -48,14 +48,14 @@ Luma/
 │   │   │   └── optimizers.rs        # Optimizer setup
 │   │   ├── training/
 │   │   │   ├── mod.rs
-│   │   │   ├── distributed.rs       # Distributed training (has tests)
+│   │   │   ├── distributed.rs       # Distributed training
 │   │   │   ├── trainers.rs          # Model training logic
 │   │   │   ├── callbacks.rs         # Training callbacks
 │   │   │   └── schedulers.rs        # Learning rate schedulers
 │   │   ├── deployment/
 │   │   │   ├── mod.rs
 │   │   │   ├── deployers.rs         # Model deployment logic
-│   │   │   ├── optimizers.rs        # Model optimization (has tests)
+│   │   │   ├── optimizers.rs        # Model optimization
 │   │   │   └── exporters.rs         # Model export logic (e.g., to ONNX, TensorFlow)
 │   │   └── mod.rs                   # AI module entry point
 │   ├── core/
@@ -115,11 +115,10 @@ Luma/
 │   │   ├── tensorflow_tests.rs     # TensorFlow integration tests
 │   │   ├── pytorch_tests.rs        # PyTorch integration tests
 │   │   └── web_tests.rs            # Web integration tests
-│   ├── export_tests/
-│   │   ├── native_tests.rs         # Native export tests
-│   │   ├── wasm_tests.rs           # WebAssembly export tests
-│   │   └── colab_tests.rs          # Colab export tests
-│   └── it_works.rs                 # Basic test
+│   └── export_tests/
+│       ├── native_tests.rs         # Native export tests
+│       ├── wasm_tests.rs           # WebAssembly export tests
+│       └── colab_tests.rs          # Colab export tests
 ├── Cargo.toml                      # Cargo package configuration
 ├── Cargo.lock                      # Cargo lock file
 ├── LICENSE                         # Proprietary license
