@@ -23,16 +23,24 @@ Below is the structure of the Luma project, organized for clarity:
 ```plaintext
 Luma/
 ├── build/                           # Build artifacts and compiled binaries
-│   └── (various build files)        # Generated during compilation
+│   ├── configs/
+│   │   ├── colab.toml
+│   │   ├── native.toml
+│   │   └── wasm.toml
+│   ├── CMakeLists.txt
+│   └── build.rs
 ├── include/                         # Header files for language bindings (e.g., C/C++ integration)
-│   └── (header files)               # Not specified in detail
+│   ├── bindings/
+│   │   ├── c.rs
+│   │   ├── javascript.rs
+│   │   └── python.rs
+│   └── luma.h
 ├── plugins/                         # Plugin system (moved to root level)
 │   ├── community/
 │   │   ├── mod.rs
 │   │   ├── multi_modal_support.rs   # Multi-modal plugin
 │   │   ├── custom_nlp_module.rs     # NLP plugin
-│   │   ├── image_processing.rs      # Image processing plugin
-│   │   └── (additional plugins)     # Other community plugins
+│   │   └── image_processing.rs      # Image processing plugin
 │   ├── registry.rs                  # Plugin registry
 │   └── mod.rs                       # Plugins module entry point
 ├── src/
@@ -42,7 +50,7 @@ Luma/
 │   │   │   ├── augmentations.rs     # Data augmentation logic
 │   │   │   ├── loaders.rs           # Data loading logic
 │   │   │   ├── multi_modal.rs       # Multi-modal data handling
-│   │   │   └── preprocessors.rs     # Data preprocessing (has tests)
+│   │   │   └── preprocessors.rs     # Data preprocessing
 │   │   ├── engine/
 │   │   │   ├── mod.rs
 │   │   │   ├── accelerators.rs      # Accelerator management (e.g., CPU/GPU)
@@ -52,7 +60,8 @@ Luma/
 │   │   ├── evaluation/
 │   │   │   ├── mod.rs
 │   │   │   ├── metrics.rs           # Model evaluation metrics (e.g., accuracy, loss)
-│   │   │   └── (additional files)   # Other evaluation-related files
+│   │   │   ├── evaluators.rs        # Model evaluation logic
+│   │   │   └── comparison.rs        # Model comparison utilities
 │   │   ├── models/
 │   │   │   ├── mod.rs
 │   │   │   ├── advanced.rs          # Advanced model structure
@@ -61,12 +70,14 @@ Luma/
 │   │   │   └── optimizers.rs        # Optimizer setup
 │   │   ├── training/
 │   │   │   ├── mod.rs
-│   │   │   ├── distributed.rs       # Distributed training (has tests)
-│   │   │   └── trainers.rs          # Model training logic
+│   │   │   ├── distributed.rs       # Distributed training
+│   │   │   ├── trainers.rs          # Model training logic
+│   │   │   ├── callbacks.rs         # Training callbacks
+│   │   │   └── schedulers.rs        # Learning rate schedulers
 │   │   ├── deployment/
 │   │   │   ├── mod.rs
 │   │   │   ├── deployers.rs         # Model deployment logic
-│   │   │   ├── optimizers.rs        # Model optimization (has tests)
+│   │   │   ├── optimizers.rs        # Model optimization
 │   │   │   └── exporters.rs         # Model export logic (e.g., to ONNX, TensorFlow)
 │   │   └── mod.rs                   # AI module entry point
 │   ├── core/
@@ -78,7 +89,8 @@ Luma/
 │   │   ├── interpreter/
 │   │   │   ├── mod.rs
 │   │   │   ├── evaluator.rs        # AST evaluation logic
-│   │   │   └── pipeline_executor.rs # Pipeline execution (lexer -> parser -> evaluator)
+│   │   │   ├── pipeline_executor.rs # Pipeline execution (lexer -> parser -> evaluator)
+│   │   │   └── runtime.rs          # Runtime environment
 │   │   ├── compiler/
 │   │   │   ├── mod.rs
 │   │   │   ├── backend/
@@ -92,7 +104,8 @@ Luma/
 │   │   │   ├── mod.rs
 │   │   │   ├── math.rs             # Math utilities
 │   │   │   ├── io.rs               # I/O utilities
-│   │   │   └── utils.rs            # General utilities
+│   │   │   ├── utils.rs            # General utilities
+│   │   │   └── base.rs             # Base utilities and types
 │   │   └── mod.rs                  # Core module entry point
 │   ├── integrations/
 │   │   ├── mod.rs
@@ -112,26 +125,24 @@ Luma/
 │   └── main.rs                     # Main entry point for REPL
 ├── tests/
 │   ├── core_tests/
-│   │   ├── mod.rs
-│   │   ├── parser_tests.rs         # Parser tests
+│   │   ├── compiler_tests.rs       # Compiler tests
 │   │   ├── interpreter_tests.rs    # Interpreter tests
-│   │   └── (additional tests)      # Other core tests
+│   │   └── parser_tests.rs         # Parser tests
 │   ├── ai_tests/
-│   │   ├── mod.rs
 │   │   ├── data_tests.rs           # Data module tests
+│   │   ├── model_tests.rs          # Model tests
 │   │   ├── training_tests.rs       # Training module tests
-│   │   └── (additional tests)      # Other AI tests
+│   │   └── deployment_tests.rs     # Deployment tests
 │   ├── integration_tests/
-│   │   ├── mod.rs
 │   │   ├── tensorflow_tests.rs     # TensorFlow integration tests
 │   │   ├── pytorch_tests.rs        # PyTorch integration tests
-│   │   └── (additional tests)      # Other integration tests
-│   ├── export_tests/
-│   │   ├── mod.rs
-│   │   ├── onnx_export.rs          # ONNX export tests
-│   │   ├── wasm_export.rs          # WebAssembly export tests
-│   │   └── (additional tests)      # Other export tests
-│   └── it_works.rs                 # Basic test
+│   │   └── web_tests.rs            # Web integration tests
+│   └── export_tests/
+│       ├── native_tests.rs         # Native export tests
+│       ├── wasm_tests.rs           # WebAssembly export tests
+│       └── colab_tests.rs          # Colab export tests
+├── Cargo.toml                      # Cargo package configuration
+├── Cargo.lock                      # Cargo lock file
 ├── LICENSE                         # Proprietary license
 └── README.md                       # About Luma
 ```
