@@ -1,0 +1,17 @@
+[build]
+target = "x86_64-unknown-linux-gnu"
+optimization = "debug"
+features = ["colab"]
+
+[dependencies]
+pyo3 = { version = "0.17.0", features = ["auto-initialize"] }
+numpy = "0.24.0"
+pandas = "1.5.0"
+
+[features]
+colab_support = true
+notebook_integration = true
+python_bindings = true
+
+[profile.dev]
+debug = true

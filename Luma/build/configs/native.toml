@@ -1,0 +1,20 @@
+[build]
+target = "x86_64-unknown-linux-gnu"
+optimization = "release"
+features = ["native"]
+
+[dependencies]
+tensorflow = { version = "2.9.0", features = ["cpu"] }
+rayon = "1.5.0"  # For parallel processing
+serde = { version = "1.0", features = ["derive"] }
+pyo3 = { version = "0.17.0", features = ["auto-initialize"] }
+
+[features]
+distributed = true
+mixed_precision = true
+native_acceleration = true
+python_bindings = true
+
+[profile.release]
+lto = true
+codegen-units = 1

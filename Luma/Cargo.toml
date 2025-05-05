@@ -1,0 +1,11 @@
+[package]
+name = "luma"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Add any dependencies if needed in the future
+
+[lib]
+name = "luma"
+path = "src/lib.rs"
