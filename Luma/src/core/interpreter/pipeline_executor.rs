@@ -1,11 +1,14 @@
-use super::evaluator;
-use super::super::parser::{Lexer, Parser};
+use crate::parser::lexer::Lexer;
+use crate::parser::parser::Parser;
 
 pub fn execute_pipeline(input: &str) -> Result<(), String> {
     let lexer = Lexer::new(input);
-    let mut parser = Parser::new(lexer);
+    let tokens = lexer.tokenize()?;
+    let mut parser = Parser::new(tokens);
     let ast = parser.parse()?;
-    evaluator::evaluate(ast)
+    // Placeholder for execution logic
+    println!("AST: {:?}", ast);
+    Ok(())
 }
 
 #[no_mangle]

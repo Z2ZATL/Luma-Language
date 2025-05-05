@@ -7,39 +7,20 @@ pub mod ai;
 pub mod core;
 pub mod integrations;
 pub mod utilities;
+
+#[path = "../plugins/mod.rs"]
 pub mod plugins;
+
 pub mod repl;
 
-pub use ai::*;
-pub use core::*;
-pub use integrations::*;
-pub use utilities::*;
-pub use plugins::*;
-pub use repl::*;
+pub use ai::{self, data, deployment, engine, evaluation, models, training};
+pub use core::{self, compiler, interpreter, parser, stdlib};
+pub use integrations::{self, tensorflow, pytorch, huggingface, web};
+pub use utilities::{self, profiling, debugging, logging, visualization};
+pub use plugins::{self, community, registry};
+pub use repl::{self, repl};
 
-// Re-export submodules for convenience
-pub use ai::data;
-pub use ai::deployment;
-pub use ai::engine;
-pub use ai::evaluation;
-pub use ai::models;
-pub use ai::training;
-pub use core::compiler;
-pub use core::interpreter;
-pub use core::parser;
-pub use core::stdlib;
-pub use integrations::tensorflow;
-pub use integrations::pytorch;
-pub use integrations::huggingface;
-pub use integrations::web;
-pub use utilities::profiling;
-pub use utilities::debugging;
-pub use utilities::logging;
-pub use utilities::visualization;
-pub use plugins::community;
-pub use plugins::registry;
-pub use repl::repl;
-
+// [cfg(test)] ยังคงเหมือนเดิม
 #[cfg(test)]
 mod tests {
     #[test]

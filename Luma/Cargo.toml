@@ -4,8 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Add any dependencies if needed in the future
+rayon = "1.10"
+rand = "0.8"
 
 [lib]
 name = "luma"
 path = "src/lib.rs"
+
+[[bin]]
+name = "luma"
+path = "src/main.rs"

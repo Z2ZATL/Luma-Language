@@ -8,7 +8,7 @@ fn main() {
 
     if args.len() > 1 {
         if args[1] == "--repl" {
-            repl::start_repl();
+            repl::repl::start_repl();
         } else {
             // Assume the argument is a file path
             let file_path = &args[1];
