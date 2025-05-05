@@ -1,6 +1,5 @@
 pub mod repl {
-    use crate::core::parser::{Lexer, Parser};
-    use crate::core::interpreter::pipeline_executor;
+    use crate::core_interpreter::pipeline_executor;
     use std::io::{self, Write};
 
     pub fn start_repl() {

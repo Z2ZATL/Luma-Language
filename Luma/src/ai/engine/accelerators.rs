@@ -1,58 +1,25 @@
-use std::sync::Arc;
-use std::cell::RefCell;
+use std::sync::RwLock;
+use lazy_static::lazy_static;
 
-#[derive(Debug)]
-pub struct Accelerator {
-    device: String, // e.g., "cuda", "cpu", "tpu"
-    enabled: bool,
+#[derive(Debug, Clone)]
+pub struct Accelerator {}
+
+lazy_static! {
+    static ref ACCELERATOR: RwLock<Option<Accelerator>> = RwLock::new(None);
 }
 
-impl Accelerator {
-    pub fn new(device: &str) -> Self {
-        Accelerator {
-            device: device.to_string(),
-            enabled: device != "cpu",
-        }
-    }
-
-    pub fn is_available(&self) -> bool {
-        self.enabled
-    }
-
-    pub fn accelerate(&self, data: &[f64]) -> Vec<f64> {
-        // Placeholder: Simulate acceleration
-        if self.enabled {
-            data.iter().map(|x| *x * 2.0).collect() // Simple doubling as acceleration example
-        } else {
-            data.to_vec()
-        }
-    }
+pub fn set_accelerator(_device: &str) -> Result<(), String> {
+    let mut accel = ACCELERATOR.write().map_err(|_| "Failed to acquire write lock")?;
+    *accel = Some(Accelerator {});
+    Ok(())
 }
 
-static mut ACCELERATOR: Option<Arc<RefCell<Accelerator>>> = None;
-
-pub fn initialize_accelerator(device: &str) {
-    unsafe {
-        if ACCELERATOR.is_none() {
-            ACCELERATOR = Some(Arc::new(RefCell::new(Accelerator::new(device))));
-        }
-    }
+pub fn get_accelerator() -> Option<Accelerator> {
+    let accel = ACCELERATOR.read().map_err(|_| "Failed to acquire read lock").unwrap();
+    accel.clone()
 }
 
-#[no_mangle]
-pub extern "C" fn luma_init_accelerator(device: *const std::os::raw::c_char) -> i32 {
-    if device.is_null() {
-        return -1;
-    }
-    let device_str = unsafe { std::ffi::CStr::from_ptr(device).to_str() };
-    if device_str.is_err() {
-        return -1;
-    }
-    initialize_accelerator(device_str.unwrap());
-    0
-}
-
-#[no_mangle]
-pub extern "C" fn luma_cleanup_accelerator() {
-    unsafe { ACCELERATOR.take(); }
+pub fn clear_accelerator() {
+    let mut accel = ACCELERATOR.write().map_err(|_| "Failed to acquire write lock").unwrap();
+    *accel = None;
 }

@@ -1,67 +1,36 @@
-use std::collections::HashMap;
+use std::sync::RwLock;
+use lazy_static::lazy_static;
 
-#[derive(Debug)]
-pub struct ModelOptimizer {
-    model_id: i32,
-    quantization: bool,
-    pruning: bool,
+lazy_static! {
+    static ref OPTIMIZED_MODELS: RwLock<Vec<String>> = RwLock::new(Vec::new());
 }
 
-impl ModelOptimizer {
-    pub fn new(model_id: i32, quantization: bool, pruning: bool) -> Self {
-        ModelOptimizer {
-            model_id,
-            quantization,
-            pruning,
-        }
-    }
-
-    pub fn optimize(&self) -> Result<(), String> {
-        // Placeholder: Simulate optimization
-        if self.quantization {
-            println!("Applying quantization to model {}", self.model_id);
-        }
-        if self.pruning {
-            println!("Applying pruning to model {}", self.model_id);
-        }
-        Ok(())
-    }
+/// Optimizes a model by adding it to the registry
+pub fn optimize_model(model_id: i32) -> Result<(), String> {
+    let mut registry = OPTIMIZED_MODELS.write().map_err(|_| "Failed to acquire write lock")?;
+    registry.push(format!("Model_{}", model_id));
+    Ok(())
 }
 
-static mut OPTIMIZED_MODELS: Option<HashMap<i32, bool>> = None;
-
-pub fn initialize_optimizer_registry() {
-    unsafe {
-        if OPTIMIZED_MODELS.is_none() {
-            OPTIMIZED_MODELS = Some(HashMap::new());
-        }
-    }
+/// Clears all optimized models from the registry
+pub fn clear_optimized_models() -> Result<(), String> {
+    let mut registry = OPTIMIZED_MODELS.write().map_err(|_| "Failed to acquire write lock")?;
+    registry.clear();
+    Ok(())
 }
 
-#[no_mangle]
-pub extern "C" fn luma_optimize_model(model_id: i32, quantization: i32, pruning: i32) -> i32 {
-    unsafe {
-        let registry = OPTIMIZED_MODELS.as_mut()
-            .expect("Optimizer registry not initialized");
-        if registry.contains_key(&model_id) {
-            return -1; // Model already optimized
-        }
-        let optimizer = ModelOptimizer::new(model_id, quantization != 0, pruning != 0);
-        match optimizer.optimize() {
-            Ok(()) => {
-                registry.insert(model_id, true);
-                0
-            }
-            Err(_) => -1,
-        }
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[no_mangle]
-pub extern "C" fn luma_cleanup_optimized() {
-    unsafe {
-        if let Some(registry) = OPTIMIZED_MODELS.take() {
-            registry.clear();
-        }
+    #[test]
+    fn test_optimize_model() {
+        assert!(optimize_model(1).is_ok());
+        assert!(optimize_model(2).is_ok());
+    }
+
+    #[test]
+    fn test_clear_optimized_models() {
+        assert!(clear_optimized_models().is_ok());
     }
 }

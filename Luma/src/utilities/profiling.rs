@@ -5,35 +5,33 @@ pub struct Profiler {
 }
 
 impl Profiler {
-    pub fn new() -> Self {
-        Profiler {
-            start: Instant::now(),
-        }
+    pub fn new() -> *mut Profiler {
+        Box::into_raw(Box::new(Profiler { start: Instant::now() }))
     }
 
-    pub fn elapsed_ms(&self) -> f64 {
-        self.start.elapsed().as_secs_f64() * 1000.0
+    pub fn elapsed(&self) -> std::time::Duration {
+        self.start.elapsed()
     }
 }
 
-#[no_mangle]
-pub extern "C" fn luma_start_profiling() -> *mut Profiler {
-    let profiler = Box::new(Profiler::new());
-    Box::into_raw(profiler)
+pub fn start_profiling() -> *mut Profiler {
+    Profiler::new()
 }
 
-#[no_mangle]
-pub extern "C" fn luma_get_elapsed(profiler: *mut Profiler) -> f64 {
-    if profiler.is_null() {
-        return -1.0;
+pub fn stop_profiling(profiler: *mut Profiler) {
+    unsafe {
+        let _ = Box::from_raw(profiler);
     }
-    let profiler = unsafe { &*profiler };
-    profiler.elapsed_ms()
 }
 
-#[no_mangle]
-pub extern "C" fn luma_free_profiler(profiler: *mut Profiler) {
-    if !profiler.is_null() {
-        unsafe { Box::from_raw(profiler); }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_profiling() {
+        let profiler = start_profiling();
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        stop_profiling(profiler);
     }
 }

@@ -1,18 +1,40 @@
 use rayon::prelude::*;
 
-pub fn distribute_training(data: &[f64]) -> Vec<f64> {
+pub fn parallel_process(data: &[f64]) -> Vec<f64> {
     data.par_iter().map(|x| *x * 2.0).collect() // Parallel computation
 }
 
-#[no_mangle]
-pub extern "C" fn luma_distribute_training(data: *const f64, len: i32, out: *mut f64) -> i32 {
-    if data.is_null() || out.is_null() || len <= 0 {
-        return -1;
+/// Distributes training across multiple threads
+pub fn distributed_train(data: &[f64], labels: &[f64]) -> Result<Vec<f64>, String> {
+    if data.len() != labels.len() {
+        return Err("Data and labels must have the same length".to_string());
     }
-    unsafe {
-        let data_slice = std::slice::from_raw_parts(data, len as usize);
-        let result = distribute_training(data_slice);
-        std::ptr::copy_nonoverlapping(result.as_ptr(), out, len as usize);
+
+    let weights: Vec<f64> = data
+        .par_iter()
+        .zip(labels.par_iter())
+        .map(|(x, y)| x * y) // Simple weight update
+        .collect();
+
+    Ok(weights)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parallel_process() {
+        let data = vec![1.0, 2.0, 3.0];
+        let result = parallel_process(&data);
+        assert_eq!(result, vec![2.0, 4.0, 6.0]);
     }
-    0
+
+    #[test]
+    fn test_distributed_train() {
+        let data = vec![1.0, 2.0, 3.0];
+        let labels = vec![2.0, 4.0, 6.0];
+        let result = distributed_train(&data, &labels).unwrap();
+        assert_eq!(result, vec![2.0, 8.0, 18.0]);
+    }
 }

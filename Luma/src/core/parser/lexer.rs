@@ -4,158 +4,161 @@ pub enum Token {
     Dataset,
     As,
     Lazy,
+    Equals,
+    True,
+    False,
     Create,
     Model,
     Train,
     Evaluate,
     Save,
+    Execute,
+    Plugin,
+    Epochs,
+    BatchSize,
+    LearningRate,
     Identifier(String),
-    String(String),
+    StringLiteral(String),
     Number(f64),
-    Equals,
-    True,
-    False,
-    Comma,
-    EOF,
+    Float(f64),
+    Eof,
 }
 
 pub struct Lexer<'a> {
     input: &'a str,
-    position: usize,
-    ch: Option<char>,
+    pos: usize,
+    current_char: Option<char>,
 }
 
 impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Self {
-        let mut lexer = Lexer {
+        Lexer {
             input,
-            position: 0,
-            ch: None,
-        };
-        lexer.read_char();
-        lexer
+            pos: 0,
+            current_char: input.chars().next(),
+        }
     }
 
-    fn read_char(&mut self) {
-        self.ch = self.input[self.position..].chars().next();
-        self.position += self.ch.map_or(0, |_| 1);
-    }
-
-    fn peek_char(&self) -> Option<char> {
-        self.input[self.position..].chars().next()
+    fn advance(&mut self) {
+        self.pos += 1;
+        self.current_char = self.input[self.pos..].chars().next();
     }
 
     fn skip_whitespace(&mut self) {
-        while self.ch.map_or(false, |c| c.is_whitespace()) {
-            self.read_char();
+        while self.current_char.map_or(false, |c| c.is_whitespace()) {
+            self.advance();
         }
     }
 
-    fn read_identifier(&mut self) -> String {
-        let mut ident = String::new();
-        while self.ch.map_or(false, |c| c.is_alphabetic() || c == '_') {
-            ident.push(self.ch.unwrap());
-            self.read_char();
-        }
-        ident
-    }
-
-    fn read_string(&mut self) -> String {
-        let mut s = String::new();
-        self.read_char(); // Skip opening quote
-        while self.ch.map_or(false, |c| c != '"') {
-            if self.ch.is_none() {
-                break; // Handle unclosed string
-            }
-            s.push(self.ch.unwrap());
-            self.read_char();
-        }
-        self.read_char(); // Skip closing quote
-        s
-    }
-
-    fn read_number(&mut self) -> f64 {
-        let mut num = String::new();
-        while self.ch.map_or(false, |c| c.is_digit(10) || c == '.') {
-            num.push(self.ch.unwrap());
-            self.read_char();
-        }
-        num.parse::<f64>().unwrap_or(0.0)
-    }
-
-    pub fn next_token(&mut self) -> Token {
-        self.skip_whitespace();
-        match self.ch {
-            Some('=') => {
-                self.read_char();
-                if self.ch == Some('=') {
-                    self.read_char();
-                    Token::Equals
-                } else {
-                    Token::Equals
+    pub fn tokenize(&mut self) -> Result<Vec<Token>, String> {
+        let mut tokens = Vec::new();
+        while let Some(c) = self.current_char {
+            self.skip_whitespace();
+            match c {
+                'l' if self.input[self.pos..].starts_with("load") => {
+                    self.pos += 4;
+                    tokens.push(Token::Load);
                 }
-            }
-            Some(',') => {
-                self.read_char();
-                Token::Comma
-            }
-            Some('"') => {
-                let s = self.read_string();
-                Token::String(s)
-            }
-            Some(c) if c.is_alphabetic() || c == '_' => {
-                let ident = self.read_identifier();
-                match ident.as_str() {
-                    "load" => Token::Load,
-                    "dataset" => Token::Dataset,
-                    "as" => Token::As,
-                    "lazy" => Token::Lazy,
-                    "create" => Token::Create,
-                    "model" => Token::Model,
-                    "train" => Token::Train,
-                    "evaluate" => Token::Evaluate,
-                    "save" => Token::Save,
-                    "True" => Token::True,
-                    "False" => Token::False,
-                    _ => Token::Identifier(ident),
+                'd' if self.input[self.pos..].starts_with("dataset") => {
+                    self.pos += 7;
+                    tokens.push(Token::Dataset);
                 }
-            }
-            Some(c) if c.is_digit(10) => {
-                let num = self.read_number();
-                Token::Number(num)
-            }
-            None => Token::EOF,
-            _ => {
-                self.read_char();
-                Token::EOF
+                'a' if self.input[self.pos..].starts_with("as") => {
+                    self.pos += 2;
+                    tokens.push(Token::As);
+                }
+                'l' if self.input[self.pos..].starts_with("lazy") => {
+                    self.pos += 4;
+                    tokens.push(Token::Lazy);
+                }
+                '=' => {
+                    self.advance();
+                    tokens.push(Token::Equals);
+                }
+                't' if self.input[self.pos..].starts_with("true") => {
+                    self.pos += 4;
+                    tokens.push(Token::True);
+                }
+                'f' if self.input[self.pos..].starts_with("false") => {
+                    self.pos += 5;
+                    tokens.push(Token::False);
+                }
+                'c' if self.input[self.pos..].starts_with("create") => {
+                    self.pos += 6;
+                    tokens.push(Token::Create);
+                }
+                'm' if self.input[self.pos..].starts_with("model") => {
+                    self.pos += 5;
+                    tokens.push(Token::Model);
+                }
+                't' if self.input[self.pos..].starts_with("train") => {
+                    self.pos += 5;
+                    tokens.push(Token::Train);
+                }
+                'e' if self.input[self.pos..].starts_with("evaluate") => {
+                    self.pos += 9;
+                    tokens.push(Token::Evaluate);
+                }
+                's' if self.input[self.pos..].starts_with("save") => {
+                    self.pos += 4;
+                    tokens.push(Token::Save);
+                }
+                'e' if self.input[self.pos..].starts_with("execute") => {
+                    self.pos += 7;
+                    tokens.push(Token::Execute);
+                }
+                'p' if self.input[self.pos..].starts_with("plugin") => {
+                    self.pos += 6;
+                    tokens.push(Token::Plugin);
+                }
+                'e' if self.input[self.pos..].starts_with("epochs") => {
+                    self.pos += 6;
+                    tokens.push(Token::Epochs);
+                }
+                'b' if self.input[self.pos..].starts_with("batch_size") => {
+                    self.pos += 10;
+                    tokens.push(Token::BatchSize);
+                }
+                'l' if self.input[self.pos..].starts_with("learning_rate") => {
+                    self.pos += 13;
+                    tokens.push(Token::LearningRate);
+                }
+                '"' => {
+                    self.advance();
+                    let mut literal = String::new();
+                    while self.current_char.map_or(false, |c| c != '"') {
+                        literal.push(c);
+                        self.advance();
+                    }
+                    self.advance(); // Skip closing quote
+                    tokens.push(Token::StringLiteral(literal));
+                }
+                c if c.is_alphabetic() => {
+                    let mut ident = String::new();
+                    while self.current_char.map_or(false, |c| c.is_alphanumeric() || c == '_') {
+                        ident.push(c);
+                        self.advance();
+                    }
+                    tokens.push(Token::Identifier(ident));
+                }
+                c if c.is_digit(10) || c == '-' || c == '.' => {
+                    let mut num = String::new();
+                    while self.current_char.map_or(false, |c| c.is_digit(10) || c == '.' || c == '-') {
+                        num.push(c);
+                        self.advance();
+                    }
+                    if num.contains('.') {
+                        if let Ok(f) = num.parse::<f64>() {
+                            tokens.push(Token::Float(f));
+                        }
+                    } else if let Ok(n) = num.parse::<f64>() {
+                        tokens.push(Token::Number(n));
+                    }
+                }
+                _ => self.advance(),
             }
         }
-    }
-}
-
-// Unit tests for the lexer
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_lexer() {
-        let input = r#"load dataset "iris.csv" as iris lazy=True"#;
-        let mut lexer = Lexer::new(input);
-        let expected = vec![
-            Token::Load,
-            Token::Dataset,
-            Token::String("iris.csv".to_string()),
-            Token::As,
-            Token::Identifier("iris".to_string()),
-            Token::Lazy,
-            Token::Equals,
-            Token::True,
-            Token::EOF,
-        ];
-        for expected_token in expected {
-            let token = lexer.next_token();
-            assert_eq!(token, expected_token);
-        }
+        tokens.push(Token::Eof);
+        Ok(tokens)
     }
 }

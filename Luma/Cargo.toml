@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 rayon = "1.10"
 rand = "0.8"
+lazy_static = "1.5"
+syn = "2.0"
 
 [lib]
 name = "luma"

@@ -22,43 +22,118 @@ Below is the structure of the Luma project, organized for clarity:
 
 ```plaintext
 Luma/
+├── build/                           # Build artifacts and compiled binaries
+│   └── (various build files)        # Generated during compilation
+├── include/                         # Header files for language bindings (e.g., C/C++ integration)
+│   └── (header files)               # Not specified in detail
+├── plugins/                         # Plugin system (moved to root level)
+│   ├── community/
+│   │   ├── mod.rs
+│   │   ├── multi_modal_support.rs   # Multi-modal plugin
+│   │   ├── custom_nlp_module.rs     # NLP plugin
+│   │   ├── image_processing.rs      # Image processing plugin
+│   │   └── (additional plugins)     # Other community plugins
+│   ├── registry.rs                  # Plugin registry
+│   └── mod.rs                       # Plugins module entry point
 ├── src/
 │   ├── ai/
-│   │   ├── data/                # Data loading, preprocessing, multimodal
-│   │   ├── engine/              # Computation engine (autodiff, tensor)
-│   │   ├── evaluation/          # Model evaluation and metrics
-│   │   ├── models/              # Model architectures and layers
-│   │   ├── training/            # Training logic and distributed training
-│   │   ├── deployment/          # Model deployment and optimization
-│   │   └── ...
+│   │   ├── data/
+│   │   │   ├── mod.rs
+│   │   │   ├── augmentations.rs     # Data augmentation logic
+│   │   │   ├── loaders.rs           # Data loading logic
+│   │   │   ├── multi_modal.rs       # Multi-modal data handling
+│   │   │   └── preprocessors.rs     # Data preprocessing (has tests)
+│   │   ├── engine/
+│   │   │   ├── mod.rs
+│   │   │   ├── accelerators.rs      # Accelerator management (e.g., CPU/GPU)
+│   │   │   ├── tensor.rs            # Tensor structure and operations
+│   │   │   ├── autodiff.rs          # Automatic differentiation
+│   │   │   └── operations.rs        # Tensor operations (e.g., add, multiply)
+│   │   ├── evaluation/
+│   │   │   ├── mod.rs
+│   │   │   ├── metrics.rs           # Model evaluation metrics (e.g., accuracy, loss)
+│   │   │   └── (additional files)   # Other evaluation-related files
+│   │   ├── models/
+│   │   │   ├── mod.rs
+│   │   │   ├── advanced.rs          # Advanced model structure
+│   │   │   ├── architectures.rs     # Model architecture setup
+│   │   │   ├── layers.rs            # Layer structure
+│   │   │   └── optimizers.rs        # Optimizer setup
+│   │   ├── training/
+│   │   │   ├── mod.rs
+│   │   │   ├── distributed.rs       # Distributed training (has tests)
+│   │   │   └── trainers.rs          # Model training logic
+│   │   ├── deployment/
+│   │   │   ├── mod.rs
+│   │   │   ├── deployers.rs         # Model deployment logic
+│   │   │   ├── optimizers.rs        # Model optimization (has tests)
+│   │   │   └── exporters.rs         # Model export logic (e.g., to ONNX, TensorFlow)
+│   │   └── mod.rs                   # AI module entry point
 │   ├── core/
-│   │   ├── parser/              # Lexer, parser, AST
-│   │   ├── interpreter/         # Evaluator, runtime, pipeline
-│   │   ├── compiler/            # Codegen, IR, backends (native, wasm, colab)
-│   │   └── stdlib/              # Standard library (math, io, utils)
+│   │   ├── parser/
+│   │   │   ├── mod.rs
+│   │   │   ├── ast.rs              # AST and Scope definitions
+│   │   │   ├── lexer.rs            # Lexer
+│   │   │   └── parser.rs           # Parser
+│   │   ├── interpreter/
+│   │   │   ├── mod.rs
+│   │   │   ├── evaluator.rs        # AST evaluation logic
+│   │   │   └── pipeline_executor.rs # Pipeline execution (lexer -> parser -> evaluator)
+│   │   ├── compiler/
+│   │   │   ├── mod.rs
+│   │   │   ├── backend/
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── native.rs       # Native code backend
+│   │   │   │   ├── wasm.rs         # WebAssembly backend
+│   │   │   │   └── colab.rs        # Colab backend
+│   │   │   ├── codegen.rs          # Code generation
+│   │   │   └── ir.rs               # Intermediate Representation generation
+│   │   ├── stdlib/
+│   │   │   ├── mod.rs
+│   │   │   ├── math.rs             # Math utilities
+│   │   │   ├── io.rs               # I/O utilities
+│   │   │   └── utils.rs            # General utilities
+│   │   └── mod.rs                  # Core module entry point
 │   ├── integrations/
-│   │   ├── tensorflow.rs        # TensorFlow integration
-│   │   ├── pytorch.rs           # PyTorch integration
-│   │   ├── huggingface.rs       # Hugging Face integration
-│   │   └── web.rs               # WebAssembly support
+│   │   ├── mod.rs
+│   │   ├── tensorflow.rs           # TensorFlow integration
+│   │   ├── pytorch.rs              # PyTorch integration
+│   │   ├── huggingface.rs          # Hugging Face integration
+│   │   └── web.rs                  # WebAssembly support
 │   ├── utilities/
-│   │   ├── profiling.rs         # Performance profiling
-│   │   ├── debugging.rs         # Debugging tools
-│   │   ├── logging.rs           # Logging system
-│   │   └── visualization.rs     # Data visualization
-│   └── plugins/
-│       ├── community/
-│       │   ├── multi_modal_support.rs  # Multimodal data support
-│       │   ├── custom_nlp_module.rs    # NLP processing
-│       │   └── image_processing.rs     # Image processing
-│       └── registry.rs          # Plugin registry
+│   │   ├── mod.rs
+│   │   ├── profiling.rs            # Performance profiling
+│   │   ├── debugging.rs            # Debugging tools
+│   │   ├── logging.rs              # Logging system
+│   │   └── visualization.rs        # Data visualization
+│   ├── repl/
+│   │   └── mod.rs                  # REPL for user interaction
+│   ├── lib.rs                      # Library entry point
+│   └── main.rs                     # Main entry point for REPL
 ├── tests/
-│   ├── core_tests/              # Core DSL tests
-│   ├── ai_tests/                # AI module tests
-│   ├── integration_tests/       # Integration tests
-│   └── export_tests/            # Export tests
-├── LICENSE                      # Proprietary license
-└── README.md                    # This file
+│   ├── core_tests/
+│   │   ├── mod.rs
+│   │   ├── parser_tests.rs         # Parser tests
+│   │   ├── interpreter_tests.rs    # Interpreter tests
+│   │   └── (additional tests)      # Other core tests
+│   ├── ai_tests/
+│   │   ├── mod.rs
+│   │   ├── data_tests.rs           # Data module tests
+│   │   ├── training_tests.rs       # Training module tests
+│   │   └── (additional tests)      # Other AI tests
+│   ├── integration_tests/
+│   │   ├── mod.rs
+│   │   ├── tensorflow_tests.rs     # TensorFlow integration tests
+│   │   ├── pytorch_tests.rs        # PyTorch integration tests
+│   │   └── (additional tests)      # Other integration tests
+│   ├── export_tests/
+│   │   ├── mod.rs
+│   │   ├── onnx_export.rs          # ONNX export tests
+│   │   ├── wasm_export.rs          # WebAssembly export tests
+│   │   └── (additional tests)      # Other export tests
+│   └── it_works.rs                 # Basic test
+├── LICENSE                         # Proprietary license
+└── README.md                       # About Luma
 ```
 
 ---

@@ -1,21 +1,16 @@
-use super::super::parser::ast::AstNode;
+use crate::core_parser::ast::AstNode;
 
 pub fn generate_code(ast: AstNode) -> String {
     match ast {
-        AstNode::LoadDataset { path, name, lazy } => {
-            format!("luma_load_dataset(\"{}\", \"{}\", {});", path, name, if lazy { 1 } else { 0 })
-        }
-        AstNode::CreateModel { model_type } => {
-            format!("luma_create_model(\"{}\");", model_type)
-        }
+        AstNode::Empty => "NOOP".to_string(),
+        AstNode::Block(nodes) => nodes.into_iter().map(generate_code).collect::<Vec<String>>().join("; "),
+        AstNode::LoadDataset { path, name, lazy } => format!("LOAD DATASET {} AS {} LAZY={}", path, name, lazy),
+        AstNode::CreateModel { model_type } => format!("CREATE MODEL {}", model_type),
         AstNode::TrainModel { epochs, batch_size, learning_rate } => {
-            format!("luma_train({}, {}, {}, {});", 1, epochs, batch_size, learning_rate) // model_id = 1 (placeholder)
+            format!("TRAIN MODEL epochs={} batch_size={} learning_rate={}", epochs, batch_size, learning_rate)
         }
-        AstNode::EvaluateModel { metrics } => {
-            format!("luma_evaluate({}, \"{}\");", 1, metrics.join(",")) // model_id = 1 (placeholder)
-        }
-        AstNode::SaveModel { path } => {
-            format!("luma_save_model({}, \"{}\");", 1, path) // model_id = 1 (placeholder)
-        }
+        AstNode::EvaluateModel { metrics } => format!("EVALUATE MODEL metrics={:?}", metrics),
+        AstNode::SaveModel { path } => format!("SAVE MODEL {}", path),
+        AstNode::ExecutePlugin { plugin_name, args } => format!("EXECUTE PLUGIN {} {:?}", plugin_name, args),
     }
 }
