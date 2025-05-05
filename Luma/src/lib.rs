@@ -20,7 +20,6 @@ pub use utilities::{self, profiling, debugging, logging, visualization};
 pub use plugins::{self, community, registry};
 pub use repl::{self, repl};
 
-// [cfg(test)] ยังคงเหมือนเดิม
 #[cfg(test)]
 mod tests {
     #[test]
