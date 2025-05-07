@@ -1,4 +1,138 @@
-#[no_mangle]
-pub extern "C" fn luma_train(_model_id: i32, _data: *const f64, _labels: *const f64, size: i32) -> i32 {
-    size
+use crate::ai::models::advanced::NeuralNetwork;
+use crate::ai::data::loaders::DatasetMetadata;
+use crate::ai::models::optimizers::Optimizer;
+use crate::ai::training::callbacks::Callback;
+use crate::ai::training::schedulers::LearningRateScheduler;
+use crate::ai::engine::tensor::Tensor;
+use crate::ai::engine::autodiff::ComputationGraph;
+
+pub struct Trainer<T: Optimizer> {
+    model: NeuralNetwork,
+    optimizer: T,
+    callbacks: Vec<Box<dyn Callback>>,
+    scheduler: LearningRateScheduler,
+}
+
+impl<T: Optimizer> Trainer<T> {
+    pub fn new(model: NeuralNetwork, optimizer: T, scheduler: LearningRateScheduler) -> Self {
+        Trainer {
+            model,
+            optimizer,
+            callbacks: Vec::new(),
+            scheduler,
+        }
+    }
+
+    pub fn add_callback(&mut self, callback: Box<dyn Callback>) {
+        self.callbacks.push(callback);
+    }
+
+    pub fn train(&mut self, data: &DatasetMetadata, labels: &Vec<Vec<f64>>, epochs: usize, batch_size: usize, learning_rate: f64) {
+        let num_samples = data.get_data().len();
+        if num_samples != labels.len() {
+            panic!("Data and labels length mismatch");
+        }
+
+        let mut current_lr = learning_rate;
+        for epoch in 0..epochs {
+            let mut total_loss = 0.0;
+            let mut correct = 0;
+            let mut total = 0;
+
+            for batch_start in (0..num_samples).step_by(batch_size) {
+                let batch_end = (batch_start + batch_size).min(num_samples);
+                let batch_data = &data.get_data()[batch_start..batch_end];
+                let batch_labels = &labels[batch_start..batch_end];
+
+                let mut graph = ComputationGraph::new();
+
+                // Register weights and biases once per batch
+                for layer in self.model.layers.iter_mut() {
+                    for weight in layer.weights.iter_mut() {
+                        if weight.id == 0 {
+                            *weight = graph.register_tensor(weight.clone());
+                            println!("Debug: Registered weight tensor with ID {}", weight.id);
+                        }
+                    }
+                    for bias in layer.biases.iter_mut() {
+                        if bias.id == 0 {
+                            *bias = graph.register_tensor(bias.clone());
+                            println!("Debug: Registered bias tensor with ID {}", bias.id);
+                        }
+                    }
+                }
+
+                // Reset gradients before processing batch
+                for layer in self.model.layers.iter_mut() {
+                    for weight in layer.weights.iter_mut() {
+                        weight.zero_grad();
+                    }
+                    for bias in layer.biases.iter_mut() {
+                        bias.zero_grad();
+                    }
+                }
+
+                let mut batch_loss = 0.0;
+                for (input, label) in batch_data.iter().zip(batch_labels.iter()) {
+                    let input_tensor = Tensor::with_grad(input.clone(), vec![input.len()]);
+                    let input_tensor = graph.register_tensor(input_tensor);
+                    let output_tensor = self.model.forward(input_tensor, &mut graph);
+
+                    let output = output_tensor.get_data().to_vec();
+                    let label_tensor = Tensor::new(label.clone(), vec![label.len()]);
+                    let label_tensor = graph.register_tensor(label_tensor);
+
+                    let loss = self.binary_cross_entropy(&output, label);
+                    let loss_tensor = Tensor::with_grad(vec![loss], vec![1]);
+                    let loss_tensor = graph.register_tensor(loss_tensor);
+                    // Don't re-register the output tensor to preserve connectivity with previous operations
+                    // Use output_tensor directly to maintain graph connectivity
+                    graph.add_operation("binary_cross_entropy", vec![output_tensor.clone(), label_tensor], loss_tensor.clone());
+                    println!("Debug: BCE operation added, output tensor ID {}, loss tensor ID {}", output_tensor.id, loss_tensor.id);
+
+                    batch_loss += loss;
+
+                    let prediction = if output[0] > 0.5 { 1.0 } else { 0.0 };
+                    if (prediction - label[0]).abs() < 1e-5 {
+                        correct += 1;
+                    }
+                    total += 1;
+
+                    graph.backward(loss_tensor.id);
+                }
+
+                // Average gradients over batch
+                let batch_size_f = batch_data.len() as f64;
+                for layer in self.model.layers.iter_mut() {
+                    for weight in layer.weights.iter_mut() {
+                        weight.scale_grad(1.0 / batch_size_f);
+                    }
+                    for bias in layer.biases.iter_mut() {
+                        bias.scale_grad(1.0 / batch_size_f);
+                    }
+                }
+
+                // Update weights with optimizer
+                self.optimizer.step(&mut self.model, current_lr);
+
+                batch_loss /= batch_size_f;
+                total_loss += batch_loss;
+            }
+
+            let avg_loss = total_loss / (num_samples as f64 / batch_size as f64);
+            let accuracy = correct as f64 / total as f64;
+            current_lr = self.scheduler.update_lr(epoch, avg_loss, current_lr).max(0.005);
+            println!("Epoch {}: Loss = {:.4}, Accuracy = {:.2}%, Learning Rate = {:.4}", epoch + 1, avg_loss, accuracy * 100.0, current_lr);
+
+            for callback in &self.callbacks {
+                callback.on_epoch_end(epoch, avg_loss);
+            }
+        }
+    }
+
+    fn binary_cross_entropy(&self, output: &Vec<f64>, target: &Vec<f64>) -> f64 {
+        let y = target[0];
+        let p = output[0].clamp(1e-7, 1.0 - 1e-7);
+        -(y * p.ln() + (1.0 - y) * (1.0 - p).ln())
+    }
 }
