@@ -29,11 +29,13 @@ impl NeuralNetwork {
 
     pub fn forward(&mut self, input: Tensor, graph: &mut ComputationGraph) -> Tensor {
         let mut output = input;
+        // Pass through each layer sequentially
         for layer in &mut self.layers {
+            // Layer's forward method should maintain tensor connectivity
             output = layer.forward(output, graph);
         }
-        // Return the output tensor directly without re-registering it
-        // This preserves the computational graph connections for backpropagation
+        // Return the final output tensor without modifying it
+        // Critical to preserve the computational graph for backpropagation
         output
     }
 }

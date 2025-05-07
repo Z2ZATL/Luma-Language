@@ -73,32 +73,44 @@ impl<T: Optimizer> Trainer<T> {
                 }
 
                 let mut batch_loss = 0.0;
+                let mut accumulated_gradients = Vec::new();
+                
                 for (input, label) in batch_data.iter().zip(batch_labels.iter()) {
+                    // Create input tensor with gradient tracking
                     let input_tensor = Tensor::with_grad(input.clone(), vec![input.len()]);
                     let input_tensor = graph.register_tensor(input_tensor);
+                    
+                    // Forward pass - get final output tensor
                     let output_tensor = self.model.forward(input_tensor, &mut graph);
-
                     let output = output_tensor.get_data().to_vec();
+                    
+                    // Create label tensor (no gradient needed)
                     let label_tensor = Tensor::new(label.clone(), vec![label.len()]);
                     let label_tensor = graph.register_tensor(label_tensor);
 
+                    // Calculate loss
                     let loss = self.binary_cross_entropy(&output, label);
                     let loss_tensor = Tensor::with_grad(vec![loss], vec![1]);
                     let loss_tensor = graph.register_tensor(loss_tensor);
-                    // Don't re-register the output tensor to preserve connectivity with previous operations
-                    // Use output_tensor directly to maintain graph connectivity
+                    
+                    // Add operation to compute graph while preserving tensor connectivity
                     graph.add_operation("binary_cross_entropy", vec![output_tensor.clone(), label_tensor], loss_tensor.clone());
                     println!("Debug: BCE operation added, output tensor ID {}, loss tensor ID {}", output_tensor.id, loss_tensor.id);
 
                     batch_loss += loss;
 
+                    // Track accuracy
                     let prediction = if output[0] > 0.5 { 1.0 } else { 0.0 };
                     if (prediction - label[0]).abs() < 1e-5 {
                         correct += 1;
                     }
                     total += 1;
 
+                    // Perform backpropagation
                     graph.backward(loss_tensor.id);
+                    
+                    // Store gradients for later accumulation
+                    accumulated_gradients.push((loss_tensor.id, output_tensor.id));
                 }
 
                 // Average gradients over batch
