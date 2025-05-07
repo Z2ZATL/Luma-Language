@@ -35,7 +35,7 @@ pub fn tensor_add(a: &Tensor, b: &Tensor, graph: Option<&mut ComputationGraph>) 
     let result_data = add(a.get_data(), b.get_data());
     let requires_grad = a.requires_grad() || b.requires_grad();
     
-    let mut result = if requires_grad {
+    let result = if requires_grad {
         Tensor::with_grad(result_data, a.get_shape().clone())
     } else {
         Tensor::new(result_data, a.get_shape().clone())
@@ -70,7 +70,7 @@ pub fn tensor_mul(a: &Tensor, b: &Tensor, graph: Option<&mut ComputationGraph>) 
         
     let requires_grad = a.requires_grad() || b.requires_grad();
     
-    let mut result = if requires_grad {
+    let result = if requires_grad {
         Tensor::with_grad(result_data, a.get_shape().clone())
     } else {
         Tensor::new(result_data, a.get_shape().clone())
@@ -124,7 +124,7 @@ pub fn tensor_matmul(a: &Tensor, b: &Tensor, graph: Option<&mut ComputationGraph
     let result_shape = vec![m, p];
     let requires_grad = a.requires_grad() || b.requires_grad();
     
-    let mut result = if requires_grad {
+    let result = if requires_grad {
         Tensor::with_grad(result_data, result_shape)
     } else {
         Tensor::new(result_data, result_shape)
@@ -215,13 +215,13 @@ pub fn tensor_scalar_mul(a: &Tensor, scalar: f64, graph: Option<&mut Computation
     
     if let Some(graph) = graph {
         if a.requires_grad() {
-            graph.add_operation(
+            let op_id = graph.add_operation(
                 "scalar_mul", 
                 vec![a.clone()], 
                 result.clone()
             );
             // Store scalar value in the graph's metadata
-            graph.set_op_metadata(result.id, "scalar", scalar.to_string());
+            graph.set_op_metadata(op_id, "scalar", scalar.to_string());
         }
     }
     
