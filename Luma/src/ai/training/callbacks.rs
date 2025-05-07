@@ -3,12 +3,12 @@ use std::fmt::Display;
 
 /// Trait for handling callbacks during model training
 pub trait Callback {
-    fn on_epoch_begin(&self, epoch: usize) {}
+    fn on_epoch_begin(&self, _epoch: usize) {}
     fn on_epoch_end(&self, epoch: usize, loss: f64);
     fn on_training_begin(&self) {}
-    fn on_training_end(&self, final_loss: f64) {}
-    fn on_batch_begin(&self, batch: usize) {}
-    fn on_batch_end(&self, batch: usize, loss: f64) {}
+    fn on_training_end(&self, _final_loss: f64) {}
+    fn on_batch_begin(&self, _batch: usize) {}
+    fn on_batch_end(&self, _batch: usize, _loss: f64) {}
 }
 
 /// A simple logging callback that prints training progress
@@ -77,7 +77,7 @@ impl EarlyStoppingCallback {
 
 impl Callback for EarlyStoppingCallback {
     fn on_epoch_end(&self, epoch: usize, loss: f64) {
-        let mut this = self as *const Self as *mut Self;
+        let this = self as *const Self as *mut Self;
         
         unsafe {
             if loss < (*this).best_loss - (*this).min_delta {
@@ -116,7 +116,7 @@ impl<T: Display> ModelCheckpointCallback<T> {
 
 impl<T: Display> Callback for ModelCheckpointCallback<T> {
     fn on_epoch_end(&self, epoch: usize, loss: f64) {
-        let mut this = self as *const Self as *mut Self;
+        let this = self as *const Self as *mut Self;
         
         if !self.save_best_only || loss < self.best_loss {
             unsafe {
