@@ -65,7 +65,7 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd /home/runner/Luma"
+args = "cd Luma"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
