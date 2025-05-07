@@ -5,7 +5,7 @@ channel = "stable-24_05"
 packages = ["rustup"]
 
 [workflows]
-runButton = "Project"
+runButton = "Luma Test Run"
 
 [[workflows.workflow]]
 name = "Project"
@@ -35,6 +35,41 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python setup_luma_structure.py"
+
+[[workflows.workflow]]
+name = "Luma Test"
+mode = "sequential"
+author = 14355119
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd /home/runner/workspace/Luma"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cargo test"
+
+[[workflows.workflow]]
+name = "Luma Repl"
+mode = "sequential"
+author = 14355119
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cargo run -- --repl"
+
+[[workflows.workflow]]
+name = "Luma Test Run"
+author = 14355119
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd /home/runner/workspace/Luma"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cargo test"
 
 [deployment]
 run = ["sh", "-c", "python setup_luma_structure.py"]
