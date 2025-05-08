@@ -3,10 +3,10 @@ use std::collections::{HashMap, VecDeque};
 
 #[derive(Debug, Clone)]
 pub struct Operation {
-    op_type: String,
-    inputs: Vec<usize>,
-    output: usize,
-    metadata: HashMap<String, String>,
+    pub op_type: String,
+    pub inputs: Vec<usize>,
+    pub output: usize,
+    pub metadata: HashMap<String, String>,
 }
 
 #[derive(Debug)]
