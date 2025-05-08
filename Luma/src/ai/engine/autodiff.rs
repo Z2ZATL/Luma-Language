@@ -96,10 +96,23 @@ impl ComputationGraph {
     pub fn backward(&mut self, output_id: usize) {
         // Initialize gradient of the output tensor
         if let Some(tensor) = self.tensors.get_mut(&output_id) {
-            if let Some(grad) = &mut tensor.grad {
-                // Set gradient to 1.0 for the output tensor
-                for g in grad.iter_mut() {
-                    *g = 1.0;
+            // Create ones gradient vector with same size as tensor data
+            let ones = vec![1.0; tensor.get_data().len()];
+            
+            // Initialize gradient if the tensor requires gradients
+            if tensor.requires_grad() {
+                // Manually accumulate gradient
+                if let Some(existing_grad) = tensor.get_grad() {
+                    // Deep clone to work with
+                    let mut new_grad = existing_grad.to_vec();
+                    for i in 0..new_grad.len() {
+                        new_grad[i] = 1.0;
+                    }
+                    // We need to update the tensor with this new gradient
+                    tensor.accumulate_grad(&ones);
+                } else {
+                    // If no gradient exists yet, just accumulate ones
+                    tensor.accumulate_grad(&ones);
                 }
             }
             println!("Debug: Initial grad for output tensor {}: {:?}", output_id, tensor.get_grad());
