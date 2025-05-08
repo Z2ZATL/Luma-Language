@@ -34,8 +34,17 @@ impl NeuralNetwork {
             // Layer's forward method should maintain tensor connectivity
             output = layer.forward(output, graph);
         }
-        // Return the final output tensor without modifying it
-        // Critical to preserve the computational graph for backpropagation
+        
+        // Ensure the output tensor is registered with the graph
+        if output.id == 0 {
+            println!("Debug: Registering final output tensor in NeuralNetwork::forward");
+            output = graph.register_tensor(output);
+        }
+        
+        // Print debug info to verify final tensor ID
+        println!("Debug: NeuralNetwork::forward final output tensor ID: {}", output.id);
+        
+        // Return the final output tensor
         output
     }
 }

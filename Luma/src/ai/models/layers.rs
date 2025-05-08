@@ -100,7 +100,31 @@ impl Layer {
 
         let output_tensor = Tensor::with_grad(output, vec![self.neurons]);
         let output_tensor = graph.register_tensor(output_tensor);
-        println!("Debug: Final output tensor ID {}", output_tensor.id);
+        println!("Debug: Final output tensor ID {} for layer {}", output_tensor.id, self.id);
+        
+        // Link layer output to individual neurons for better graph connectivity
+        // Create a concat operation that pulls together the individual neuron activations
+        let mut input_tensors = Vec::with_capacity(self.neurons);
+        for i in 0..self.neurons {
+            let neuron_id = self.neurons - i - 1; // Get most recent operations first
+            let op = graph.operations.iter().rev()
+                .find(|op| op.op_type == (if self.is_output_layer { "sigmoid" } else { "relu" }) 
+                     && op.inputs.len() > 0);
+            
+            if let Some(op) = op {
+                let activated_tensor_id = op.output;
+                if let Some(tensor) = graph.tensors.get(&activated_tensor_id) {
+                    input_tensors.push(tensor.clone());
+                }
+            }
+        }
+        
+        // Only add the concat operation if we found all neuron activations
+        if !input_tensors.is_empty() {
+            graph.add_operation("concat", input_tensors, output_tensor.clone());
+            println!("Debug: Added concat operation to link layer output to neuron activations");
+        }
+        
         output_tensor
     }
 }

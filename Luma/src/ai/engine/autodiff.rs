@@ -94,6 +94,21 @@ impl ComputationGraph {
     }
 
     pub fn backward(&mut self, output_id: usize) {
+        println!("Debug: Starting backward pass from tensor {}", output_id);
+        
+        // First, check if we have any operations that actually produce this tensor
+        let mut has_producing_ops = false;
+        for (op_id, op) in self.operations.iter().enumerate() {
+            if op.output == output_id {
+                has_producing_ops = true;
+                println!("Debug: Found op {} (type: {}) that produces tensor {}", op_id, op.op_type, output_id);
+            }
+        }
+        
+        if !has_producing_ops {
+            println!("Debug: WARNING - No operations found producing tensor {}. This may disconnect the computational graph.", output_id);
+        }
+        
         // Initialize gradient of the output tensor
         if let Some(tensor) = self.tensors.get_mut(&output_id) {
             // Create ones gradient vector with same size as tensor data
@@ -114,11 +129,26 @@ impl ComputationGraph {
                     // If no gradient exists yet, just accumulate ones
                     tensor.accumulate_grad(&ones);
                 }
+                println!("Debug: Initialized gradient for output tensor {}: {:?}", output_id, tensor.get_grad());
+            } else {
+                println!("Debug: WARNING - Output tensor {} does not require gradients", output_id);
             }
-            println!("Debug: Initial grad for output tensor {}: {:?}", output_id, tensor.get_grad());
         } else {
             println!("Debug: Error - Output tensor {} not found", output_id);
             return;
+        }
+        
+        // Print computational graph summary for debugging
+        println!("Debug: Computational graph summary:");
+        println!("Debug: Total operations: {}", self.operations.len());
+        println!("Debug: Total tensors: {}", self.tensors.len());
+        
+        // Print a few operations to check connectivity
+        let limit = 5.min(self.operations.len());
+        for op_idx in 0..limit {
+            let op = &self.operations[self.operations.len() - 1 - op_idx];
+            println!("Debug: Recent op {}: type={}, inputs={:?}, output={}", 
+                     self.operations.len() - 1 - op_idx, op.op_type, op.inputs, op.output);
         }
 
         // Create a queue of operations to process
@@ -159,11 +189,226 @@ impl ComputationGraph {
 
             // Compute gradient for input tensors based on operation type
             match op.op_type.as_str() {
-                "matmul" => { /* Implementation for matmul would go here */ },
-                "add" => { /* Implementation for add would go here */ },
-                "relu" => { /* Implementation for relu would go here */ },
-                "sigmoid" => { /* Implementation for sigmoid would go here */ },
-                "binary_cross_entropy" => { /* Implementation for binary_cross_entropy would go here */ },
+                "matmul" => {
+                    // For matrix multiplication: if z = x * y, then dz/dx = y^T, dz/dy = x^T
+                    if op.inputs.len() >= 2 {
+                        let input_a_id = op.inputs[0];
+                        let input_b_id = op.inputs[1];
+                        
+                        // Get input tensors
+                        if let (Some(input_a), Some(input_b), Some(output_tensor)) = (
+                            self.tensors.get(&input_a_id), 
+                            self.tensors.get(&input_b_id),
+                            self.tensors.get(&op.output)
+                        ) {
+                            // Get output gradients
+                            if let Some(output_grad) = output_tensor.get_grad() {
+                                // Compute gradients for input_a (first operand)
+                                if input_a.requires_grad() {
+                                    if let Some(input_a_mut) = self.tensors.get_mut(&input_a_id) {
+                                        // For simplicity in this implementation, assuming vector * vector case
+                                        // In a real implementation, this would handle matrices properly
+                                        let input_b_data = input_b.get_data();
+                                        let mut grad_a = vec![0.0; input_a.get_data().len()];
+                                        
+                                        // Simple case: grad_a = output_grad * input_b
+                                        for i in 0..grad_a.len() {
+                                            if i < input_b_data.len() {
+                                                grad_a[i] = output_grad[0] * input_b_data[i];
+                                            }
+                                        }
+                                        
+                                        input_a_mut.accumulate_grad(&grad_a);
+                                        println!("Debug: Matmul - Updated grad for input_a tensor {}: {:?}", input_a_id, input_a_mut.get_grad());
+                                    }
+                                }
+                                
+                                // Compute gradients for input_b (second operand) 
+                                if input_b.requires_grad() {
+                                    if let Some(input_b_mut) = self.tensors.get_mut(&input_b_id) {
+                                        let input_a_data = input_a.get_data();
+                                        let mut grad_b = vec![0.0; input_b.get_data().len()];
+                                        
+                                        // Simple case: grad_b = output_grad * input_a
+                                        for i in 0..grad_b.len() {
+                                            if i < input_a_data.len() {
+                                                grad_b[i] = output_grad[0] * input_a_data[i];
+                                            }
+                                        }
+                                        
+                                        input_b_mut.accumulate_grad(&grad_b);
+                                        println!("Debug: Matmul - Updated grad for input_b tensor {}: {:?}", input_b_id, input_b_mut.get_grad());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "add" => {
+                    // For addition: if z = x + y, then dz/dx = 1, dz/dy = 1
+                    if op.inputs.len() >= 2 {
+                        let input_a_id = op.inputs[0];
+                        let input_b_id = op.inputs[1];
+                        
+                        // Get output gradients
+                        if let Some(output_tensor) = self.tensors.get(&op.output) {
+                            if let Some(output_grad) = output_tensor.get_grad() {
+                                // Propagate gradient to first input
+                                if let Some(input_a) = self.tensors.get(&input_a_id) {
+                                    if input_a.requires_grad() {
+                                        if let Some(input_a_mut) = self.tensors.get_mut(&input_a_id) {
+                                            input_a_mut.accumulate_grad(output_grad);
+                                            println!("Debug: Add - Updated grad for input_a tensor {}: {:?}", input_a_id, input_a_mut.get_grad());
+                                        }
+                                    }
+                                }
+                                
+                                // Propagate gradient to second input
+                                if let Some(input_b) = self.tensors.get(&input_b_id) {
+                                    if input_b.requires_grad() {
+                                        if let Some(input_b_mut) = self.tensors.get_mut(&input_b_id) {
+                                            input_b_mut.accumulate_grad(output_grad);
+                                            println!("Debug: Add - Updated grad for input_b tensor {}: {:?}", input_b_id, input_b_mut.get_grad());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "relu" => {
+                    // For ReLU: if z = relu(x), then dz/dx = 1 if x > 0, 0 otherwise
+                    if !op.inputs.is_empty() {
+                        let input_id = op.inputs[0];
+                        
+                        if let (Some(input), Some(output_tensor)) = (
+                            self.tensors.get(&input_id),
+                            self.tensors.get(&op.output)
+                        ) {
+                            if input.requires_grad() {
+                                if let Some(output_grad) = output_tensor.get_grad() {
+                                    if let Some(input_mut) = self.tensors.get_mut(&input_id) {
+                                        let input_data = input.get_data();
+                                        let mut relu_grad = vec![0.0; input_data.len()];
+                                        
+                                        // Calculate relu gradient
+                                        for i in 0..input_data.len() {
+                                            relu_grad[i] = if input_data[i] > 0.0 { 
+                                                output_grad[i] 
+                                            } else { 
+                                                0.0 
+                                            };
+                                        }
+                                        
+                                        input_mut.accumulate_grad(&relu_grad);
+                                        println!("Debug: ReLU - Updated grad for input tensor {}: {:?}", input_id, input_mut.get_grad());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "sigmoid" => {
+                    // For sigmoid: if z = sigmoid(x), then dz/dx = sigmoid(x) * (1 - sigmoid(x))
+                    if !op.inputs.is_empty() {
+                        let input_id = op.inputs[0];
+                        
+                        if let (Some(input), Some(output_tensor)) = (
+                            self.tensors.get(&input_id),
+                            self.tensors.get(&op.output)
+                        ) {
+                            if input.requires_grad() {
+                                if let Some(output_grad) = output_tensor.get_grad() {
+                                    if let Some(input_mut) = self.tensors.get_mut(&input_id) {
+                                        let output_data = output_tensor.get_data();
+                                        let mut sigmoid_grad = vec![0.0; output_data.len()];
+                                        
+                                        // Calculate sigmoid gradient: sigmoid(x) * (1 - sigmoid(x)) * upstream_grad
+                                        for i in 0..output_data.len() {
+                                            let sigmoid_val = output_data[i];
+                                            sigmoid_grad[i] = sigmoid_val * (1.0 - sigmoid_val) * output_grad[i];
+                                        }
+                                        
+                                        input_mut.accumulate_grad(&sigmoid_grad);
+                                        println!("Debug: Sigmoid - Updated grad for input tensor {}: {:?}", input_id, input_mut.get_grad());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "binary_cross_entropy" => {
+                    // For binary cross entropy: if L = -(y * log(p) + (1-y) * log(1-p)), then dL/dp = -y/p + (1-y)/(1-p)
+                    if op.inputs.len() >= 2 {
+                        let pred_id = op.inputs[0]; // Predicted probabilities
+                        let target_id = op.inputs[1]; // Target values (0 or 1)
+                        
+                        if let (Some(pred), Some(target), Some(output_tensor)) = (
+                            self.tensors.get(&pred_id),
+                            self.tensors.get(&target_id),
+                            self.tensors.get(&op.output)
+                        ) {
+                            if pred.requires_grad() {
+                                if let Some(output_grad) = output_tensor.get_grad() {
+                                    if let Some(pred_mut) = self.tensors.get_mut(&pred_id) {
+                                        let pred_data = pred.get_data();
+                                        let target_data = target.get_data();
+                                        let mut bce_grad = vec![0.0; pred_data.len()];
+                                        
+                                        // Calculate BCE gradient
+                                        for i in 0..pred_data.len().min(target_data.len()) {
+                                            let p = pred_data[i].clamp(1e-7, 1.0 - 1e-7); // Clip to avoid division by zero
+                                            let y = target_data[i];
+                                            
+                                            // Gradient of BCE: -y/p + (1-y)/(1-p)
+                                            bce_grad[i] = (-y / p + (1.0 - y) / (1.0 - p)) * output_grad[0];
+                                        }
+                                        
+                                        pred_mut.accumulate_grad(&bce_grad);
+                                        println!("Debug: BCE - Updated grad for pred tensor {}: {:?}", pred_id, pred_mut.get_grad());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "concat" => {
+                    // For concat: Distribute output gradient to all input tensors
+                    if !op.inputs.is_empty() {
+                        // Get output gradients
+                        if let Some(output_tensor) = self.tensors.get(&op.output) {
+                            if let Some(output_grad) = output_tensor.get_grad() {
+                                // For simplicity, assume single-dimensional concatenation
+                                // Each input gets gradient corresponding to its part of the output
+                                
+                                let mut offset = 0;
+                                for input_id in &op.inputs {
+                                    if let Some(input_tensor) = self.tensors.get(input_id) {
+                                        if input_tensor.requires_grad() {
+                                            let input_size = input_tensor.get_data().len();
+                                            
+                                            // Extract the relevant part of the output gradient for this input
+                                            let mut input_grad = vec![0.0; input_size];
+                                            for i in 0..input_size.min(output_grad.len() - offset) {
+                                                if offset + i < output_grad.len() {
+                                                    input_grad[i] = output_grad[offset + i];
+                                                }
+                                            }
+                                            
+                                            // Accumulate gradient to the input tensor
+                                            if let Some(input_mut) = self.tensors.get_mut(input_id) {
+                                                input_mut.accumulate_grad(&input_grad);
+                                                println!("Debug: Concat - Updated grad for input tensor {}: {:?}", input_id, input_mut.get_grad());
+                                            }
+                                            
+                                            offset += input_size;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
                 _ => {
                     println!("Debug: Warning - Unknown operation type: {}", op.op_type);
                 }
