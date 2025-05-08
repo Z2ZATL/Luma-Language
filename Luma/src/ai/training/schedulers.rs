@@ -1,20 +1,18 @@
-
 /// LearningRateScheduler for adjusting learning rate during training
 pub struct LearningRateScheduler {
-    decay: f64,
     strategy: SchedulingStrategy,
 }
 
 /// Different learning rate scheduling strategies
 pub enum SchedulingStrategy {
+    TimeBasedDecay {
+        decay: f64,
+    },
     StepDecay {
         step_size: usize,
         gamma: f64,
     },
     ExponentialDecay {
-        decay: f64,
-    },
-    TimeBasedDecay {
         decay: f64,
     },
     CosineAnnealing {
@@ -34,7 +32,6 @@ impl LearningRateScheduler {
     /// Creates a new learning rate scheduler with time-based decay
     pub fn new(decay: f64) -> Self {
         LearningRateScheduler { 
-            decay,
             strategy: SchedulingStrategy::TimeBasedDecay { decay }
         }
     }
@@ -42,7 +39,6 @@ impl LearningRateScheduler {
     /// Creates a scheduler with step decay strategy
     pub fn step_decay(step_size: usize, gamma: f64) -> Self {
         LearningRateScheduler {
-            decay: gamma,
             strategy: SchedulingStrategy::StepDecay { step_size, gamma }
         }
     }
@@ -50,7 +46,6 @@ impl LearningRateScheduler {
     /// Creates a scheduler with exponential decay strategy
     pub fn exponential_decay(decay: f64) -> Self {
         LearningRateScheduler {
-            decay,
             strategy: SchedulingStrategy::ExponentialDecay { decay }
         }
     }
@@ -58,7 +53,6 @@ impl LearningRateScheduler {
     /// Creates a scheduler with cosine annealing strategy
     pub fn cosine_annealing(t_max: usize, eta_min: f64) -> Self {
         LearningRateScheduler {
-            decay: 0.0,
             strategy: SchedulingStrategy::CosineAnnealing { t_max, eta_min }
         }
     }
@@ -66,7 +60,6 @@ impl LearningRateScheduler {
     /// Creates a scheduler that reduces learning rate on plateau
     pub fn reduce_on_plateau(patience: usize, factor: f64) -> Self {
         LearningRateScheduler {
-            decay: factor,
             strategy: SchedulingStrategy::ReduceOnPlateau {
                 patience,
                 factor,
@@ -92,7 +85,7 @@ impl LearningRateScheduler {
                 let t_max = *t_max as f64;
                 let eta_min = *eta_min;
                 let epoch = epoch as f64 % t_max;
-                
+
                 eta_min + 0.5 * (base_lr - eta_min) * (1.0 + (std::f64::consts::PI * epoch / t_max).cos())
             },
             SchedulingStrategy::ReduceOnPlateau { .. } => {

@@ -1,24 +1,23 @@
-
+#[derive(Debug, Clone)]
 pub struct Tensor {
     data: Vec<f64>,
     shape: Vec<usize>,
     requires_grad: bool,
     grad: Option<Vec<f64>>,
-    id: usize,
+    pub id: usize,
 }
 
 impl Tensor {
     pub fn new(data: Vec<f64>, shape: Vec<usize>) -> Self {
-        // Validate that the shape is consistent with data length
         let total_size: usize = shape.iter().product();
         assert_eq!(data.len(), total_size, "Data length must match the product of dimensions");
-        
+
         Tensor { 
             data, 
             shape, 
             requires_grad: false, 
             grad: None,
-            id: 0 // Will be set by TensorRegistry if needed
+            id: 0
         }
     }
 
@@ -36,22 +35,22 @@ impl Tensor {
     pub fn get_shape(&self) -> &Vec<usize> {
         &self.shape
     }
-    
+
     pub fn get_grad(&self) -> Option<&Vec<f64>> {
         self.grad.as_ref()
     }
-    
+
     pub fn requires_grad(&self) -> bool {
         self.requires_grad
     }
-    
+
     pub fn set_requires_grad(&mut self, requires_grad: bool) {
         self.requires_grad = requires_grad;
         if requires_grad && self.grad.is_none() {
             self.grad = Some(vec![0.0; self.data.len()]);
         }
     }
-    
+
     pub fn zero_grad(&mut self) {
         if let Some(grad) = &mut self.grad {
             for g in grad.iter_mut() {
@@ -59,7 +58,7 @@ impl Tensor {
             }
         }
     }
-    
+
     pub fn accumulate_grad(&mut self, grad: &[f64]) {
         if self.requires_grad {
             if let Some(existing_grad) = &mut self.grad {
@@ -72,12 +71,19 @@ impl Tensor {
             }
         }
     }
-    
-    // Reshape tensor to new dimensions
+
+    pub fn scale_grad(&mut self, factor: f64) {
+        if let Some(grad) = &mut self.grad {
+            for g in grad.iter_mut() {
+                *g *= factor;
+            }
+        }
+    }
+
     pub fn reshape(&self, new_shape: Vec<usize>) -> Self {
         let total_size: usize = new_shape.iter().product();
         assert_eq!(self.data.len(), total_size, "New shape must match the total number of elements");
-        
+
         Tensor {
             data: self.data.clone(),
             shape: new_shape,
@@ -86,17 +92,15 @@ impl Tensor {
             id: self.id
         }
     }
-    
-    // Helper to get element at multidimensional index
+
     pub fn get(&self, indices: &[usize]) -> Option<f64> {
         if indices.len() != self.shape.len() {
             return None;
         }
-        
+
         let mut flat_index = 0;
         let mut stride = 1;
-        
-        // Calculate flat index from multidimensional indices
+
         for i in (0..indices.len()).rev() {
             if indices[i] >= self.shape[i] {
                 return None;
@@ -104,11 +108,10 @@ impl Tensor {
             flat_index += indices[i] * stride;
             stride *= self.shape[i];
         }
-        
+
         self.data.get(flat_index).copied()
     }
-    
-    // Create a tensor filled with zeros
+
     pub fn zeros(shape: Vec<usize>) -> Self {
         let total_size: usize = shape.iter().product();
         Tensor {
@@ -119,8 +122,7 @@ impl Tensor {
             id: 0
         }
     }
-    
-    // Create a tensor filled with ones
+
     pub fn ones(shape: Vec<usize>) -> Self {
         let total_size: usize = shape.iter().product();
         Tensor {
@@ -129,18 +131,6 @@ impl Tensor {
             requires_grad: false,
             grad: None,
             id: 0
-        }
-    }
-}
-
-impl Clone for Tensor {
-    fn clone(&self) -> Self {
-        Tensor {
-            data: self.data.clone(),
-            shape: self.shape.clone(),
-            requires_grad: self.requires_grad,
-            grad: self.grad.clone(),
-            id: self.id
         }
     }
 }
