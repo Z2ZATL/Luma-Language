@@ -1,5 +1,5 @@
 use crate::ai::engine::tensor::Tensor;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 
 #[derive(Debug, Clone)]
 pub struct Operation {
@@ -96,7 +96,12 @@ impl ComputationGraph {
     pub fn backward(&mut self, output_id: usize) {
         // Initialize gradient of the output tensor
         if let Some(tensor) = self.tensors.get_mut(&output_id) {
-            tensor.set_grad(&vec![1.0]); // Start with gradient of 1.0 for the output tensor
+            if let Some(grad) = &mut tensor.grad {
+                // Set gradient to 1.0 for the output tensor
+                for g in grad.iter_mut() {
+                    *g = 1.0;
+                }
+            }
             println!("Debug: Initial grad for output tensor {}: {:?}", output_id, tensor.get_grad());
         } else {
             println!("Debug: Error - Output tensor {} not found", output_id);
