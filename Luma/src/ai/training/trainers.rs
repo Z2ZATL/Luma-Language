@@ -5,12 +5,15 @@ use crate::ai::training::callbacks::Callback;
 use crate::ai::training::schedulers::LearningRateScheduler;
 use crate::ai::engine::tensor::Tensor;
 use crate::ai::engine::autodiff::ComputationGraph;
+use crate::utilities::debugging::set_debug_level;
+use crate::debug_print;
 
 pub struct Trainer<T: Optimizer> {
     model: NeuralNetwork,
     optimizer: T,
     callbacks: Vec<Box<dyn Callback>>,
     scheduler: LearningRateScheduler,
+    previous_losses: Vec<f64>,  // Store loss history for progress tracking
 }
 
 impl<T: Optimizer> Trainer<T> {
@@ -20,6 +23,7 @@ impl<T: Optimizer> Trainer<T> {
             optimizer,
             callbacks: Vec::new(),
             scheduler,
+            previous_losses: Vec::new(),
         }
     }
 
@@ -27,7 +31,14 @@ impl<T: Optimizer> Trainer<T> {
         self.callbacks.push(callback);
     }
 
+    pub fn set_debug_level(&self, level: usize) {
+        // Control debugging output level
+        set_debug_level(level);
+    }
+
     pub fn train(&mut self, data: &DatasetMetadata, labels: &Vec<Vec<f64>>, epochs: usize, batch_size: usize, learning_rate: f64) {
+        // Set default debug level to 1 - basic info only
+        set_debug_level(1);
         let num_samples = data.get_data().len();
         if num_samples != labels.len() {
             panic!("Data and labels length mismatch");
@@ -51,13 +62,13 @@ impl<T: Optimizer> Trainer<T> {
                     for weight in layer.weights.iter_mut() {
                         if weight.id == 0 {
                             *weight = graph.register_tensor(weight.clone());
-                            println!("Debug: Registered weight tensor with ID {}", weight.id);
+                            debug_print!(2, "Debug: Registered weight tensor with ID {}", weight.id);
                         }
                     }
                     for bias in layer.biases.iter_mut() {
                         if bias.id == 0 {
                             *bias = graph.register_tensor(bias.clone());
-                            println!("Debug: Registered bias tensor with ID {}", bias.id);
+                            debug_print!(2, "Debug: Registered bias tensor with ID {}", bias.id);
                         }
                     }
                 }
@@ -95,7 +106,7 @@ impl<T: Optimizer> Trainer<T> {
                     
                     // Verify output tensor is properly registered
                     if output_tensor.id == 0 {
-                        println!("Debug: WARNING - Output tensor not registered properly before BCE");
+                        debug_print!(1, "Debug: WARNING - Output tensor not registered properly before BCE");
                         // Re-register it if needed
                         let output_tensor_copy = Tensor::with_grad(output.clone(), vec![output.len()]);
                         let _output_tensor = graph.register_tensor(output_tensor_copy);
@@ -103,10 +114,10 @@ impl<T: Optimizer> Trainer<T> {
                     
                     // Add operation to compute graph while preserving tensor connectivity
                     graph.add_operation("binary_cross_entropy", vec![output_tensor.clone(), label_tensor], loss_tensor.clone());
-                    println!("Debug: BCE operation added, output tensor ID {}, loss tensor ID {}", output_tensor.id, loss_tensor.id);
+                    debug_print!(2, "Debug: BCE operation added, output tensor ID {}, loss tensor ID {}", output_tensor.id, loss_tensor.id);
                     
                     // Check the operation chain
-                    println!("Debug: Verifying operation chain for BCE with output tensor {}", output_tensor.id);
+                    debug_print!(3, "Debug: Verifying operation chain for BCE with output tensor {}", output_tensor.id);
                     
                     batch_loss += loss;
 
@@ -138,7 +149,7 @@ impl<T: Optimizer> Trainer<T> {
                     
                     if !has_gradients {
                         // If no gradients are flowing, try direct gradient assignment for debugging
-                        println!("Debug: WARNING - No gradients flowing to weights. Adding direct gradient connections.");
+                        debug_print!(1, "Debug: WARNING - No gradients flowing to weights. Adding direct gradient connections.");
                         
                         // For each layer, assign small gradients directly for testing
                         for layer_idx in 0..self.model.layers.len() {
@@ -152,7 +163,7 @@ impl<T: Optimizer> Trainer<T> {
                                         .map(|&w| 0.001 * w.signum() * loss)
                                         .collect();
                                     weight.accumulate_grad(&manual_grad);
-                                    println!("Debug: Manually added gradient to Layer {}, Neuron {} weights", layer_idx, neuron_idx);
+                                    debug_print!(2, "Debug: Manually added gradient to Layer {}, Neuron {} weights", layer_idx, neuron_idx);
                                 }
                                 
                                 let bias = &mut layer.biases[neuron_idx];
@@ -160,12 +171,12 @@ impl<T: Optimizer> Trainer<T> {
                                     // Small fixed gradient for biases
                                     let manual_grad = vec![0.001 * loss];
                                     bias.accumulate_grad(&manual_grad);
-                                    println!("Debug: Manually added gradient to Layer {}, Neuron {} bias", layer_idx, neuron_idx);
+                                    debug_print!(2, "Debug: Manually added gradient to Layer {}, Neuron {} bias", layer_idx, neuron_idx);
                                 }
                             }
                         }
                     } else {
-                        println!("Debug: Gradients are flowing correctly to model parameters");
+                        debug_print!(2, "Debug: Gradients are flowing correctly to model parameters");
                     }
                     
                     // Store gradients for later accumulation
@@ -193,7 +204,16 @@ impl<T: Optimizer> Trainer<T> {
             let avg_loss = total_loss / (num_samples as f64 / batch_size as f64);
             let accuracy = correct as f64 / total as f64;
             current_lr = self.scheduler.update_lr(epoch, avg_loss, current_lr).max(0.005);
-            println!("Epoch {}: Loss = {:.4}, Accuracy = {:.2}%, Learning Rate = {:.4}", epoch + 1, avg_loss, accuracy * 100.0, current_lr);
+            
+            // Enhanced reporting format - always show these regardless of debug level
+            println!("==========================================");
+            println!("Epoch {} / {}:", epoch + 1, epochs);
+            println!("  Loss:         {:.6} (previous: {:.6})", avg_loss, if epoch > 0 { self.previous_losses.get(epoch - 1).unwrap_or(&0.0) } else { &0.0 });
+            println!("  Accuracy:     {:.2}%", accuracy * 100.0);
+            println!("  Learning Rate: {:.6}", current_lr);
+            
+            // Store loss for tracking improvement
+            self.previous_losses.push(avg_loss);
 
             for callback in &self.callbacks {
                 callback.on_epoch_end(epoch, avg_loss);

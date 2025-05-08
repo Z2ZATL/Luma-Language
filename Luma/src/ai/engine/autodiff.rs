@@ -1,5 +1,7 @@
 use crate::ai::engine::tensor::Tensor;
 use std::collections::{HashMap, VecDeque};
+use crate::utilities::debugging::set_debug_level;
+use crate::debug_print;
 
 #[derive(Debug, Clone)]
 pub struct Operation {
@@ -57,10 +59,10 @@ impl ComputationGraph {
             .map(|t| {
                 if t.id == 0 {
                     let registered = self.register_tensor(t.clone());
-                    println!("Debug: Registered input tensor for op {} with ID {}", op_type, registered.id);
+                    debug_print!(2, "Debug: Registered input tensor for op {} with ID {}", op_type, registered.id);
                     registered.id
                 } else {
-                    println!("Debug: Input tensor for op {} already registered with ID {}", op_type, t.id);
+                    debug_print!(3, "Debug: Input tensor for op {} already registered with ID {}", op_type, t.id);
                     t.id
                 }
             })
@@ -68,10 +70,10 @@ impl ComputationGraph {
 
         let output_id = if output.id == 0 {
             let registered = self.register_tensor(output);
-            println!("Debug: Registered output tensor for op {} with ID {}", op_type, registered.id);
+            debug_print!(2, "Debug: Registered output tensor for op {} with ID {}", op_type, registered.id);
             registered.id
         } else {
-            println!("Debug: Output tensor for op {} already registered with ID {}", op_type, output.id);
+            debug_print!(3, "Debug: Output tensor for op {} already registered with ID {}", op_type, output.id);
             output.id
         };
 
@@ -82,7 +84,7 @@ impl ComputationGraph {
             output: output_id,
             metadata: HashMap::new(),
         });
-        println!("Debug: Added operation {} (type: {}), inputs: {:?}, output: {}", op_id, op_type, input_ids, output_id);
+        debug_print!(1, "Debug: Added operation {} (type: {}), inputs: {:?}, output: {}", op_id, op_type, input_ids, output_id);
 
         op_id
     }
@@ -94,19 +96,19 @@ impl ComputationGraph {
     }
 
     pub fn backward(&mut self, output_id: usize) {
-        println!("Debug: Starting backward pass from tensor {}", output_id);
+        debug_print!(1, "Debug: Starting backward pass from tensor {}", output_id);
         
         // First, check if we have any operations that actually produce this tensor
         let mut has_producing_ops = false;
         for (op_id, op) in self.operations.iter().enumerate() {
             if op.output == output_id {
                 has_producing_ops = true;
-                println!("Debug: Found op {} (type: {}) that produces tensor {}", op_id, op.op_type, output_id);
+                debug_print!(2, "Debug: Found op {} (type: {}) that produces tensor {}", op_id, op.op_type, output_id);
             }
         }
         
         if !has_producing_ops {
-            println!("Debug: WARNING - No operations found producing tensor {}. This may disconnect the computational graph.", output_id);
+            debug_print!(1, "Debug: WARNING - No operations found producing tensor {}. This may disconnect the computational graph.", output_id);
         }
         
         // Initialize gradient of the output tensor
@@ -129,25 +131,25 @@ impl ComputationGraph {
                     // If no gradient exists yet, just accumulate ones
                     tensor.accumulate_grad(&ones);
                 }
-                println!("Debug: Initialized gradient for output tensor {}: {:?}", output_id, tensor.get_grad());
+                debug_print!(2, "Debug: Initialized gradient for output tensor {}: {:?}", output_id, tensor.get_grad());
             } else {
-                println!("Debug: WARNING - Output tensor {} does not require gradients", output_id);
+                debug_print!(1, "Debug: WARNING - Output tensor {} does not require gradients", output_id);
             }
         } else {
-            println!("Debug: Error - Output tensor {} not found", output_id);
+            debug_print!(1, "Debug: Error - Output tensor {} not found", output_id);
             return;
         }
         
         // Print computational graph summary for debugging
-        println!("Debug: Computational graph summary:");
-        println!("Debug: Total operations: {}", self.operations.len());
-        println!("Debug: Total tensors: {}", self.tensors.len());
+        debug_print!(2, "Debug: Computational graph summary:");
+        debug_print!(2, "Debug: Total operations: {}", self.operations.len());
+        debug_print!(2, "Debug: Total tensors: {}", self.tensors.len());
         
         // Print a few operations to check connectivity
         let limit = 5.min(self.operations.len());
         for op_idx in 0..limit {
             let op = &self.operations[self.operations.len() - 1 - op_idx];
-            println!("Debug: Recent op {}: type={}, inputs={:?}, output={}", 
+            debug_print!(3, "Debug: Recent op {}: type={}, inputs={:?}, output={}", 
                      self.operations.len() - 1 - op_idx, op.op_type, op.inputs, op.output);
         }
 
