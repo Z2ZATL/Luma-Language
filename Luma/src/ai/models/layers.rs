@@ -106,7 +106,7 @@ impl Layer {
         // Create a concat operation that pulls together the individual neuron activations
         let mut input_tensors = Vec::with_capacity(self.neurons);
         for i in 0..self.neurons {
-            let neuron_id = self.neurons - i - 1; // Get most recent operations first
+            let _neuron_id = self.neurons - i - 1; // Get most recent operations first
             let op = graph.operations.iter().rev()
                 .find(|op| op.op_type == (if self.is_output_layer { "sigmoid" } else { "relu" }) 
                      && op.inputs.len() > 0);

@@ -98,7 +98,7 @@ impl<T: Optimizer> Trainer<T> {
                         println!("Debug: WARNING - Output tensor not registered properly before BCE");
                         // Re-register it if needed
                         let output_tensor_copy = Tensor::with_grad(output.clone(), vec![output.len()]);
-                        let output_tensor = graph.register_tensor(output_tensor_copy);
+                        let _output_tensor = graph.register_tensor(output_tensor_copy);
                     }
                     
                     // Add operation to compute graph while preserving tensor connectivity
