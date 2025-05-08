@@ -37,14 +37,16 @@ impl NeuralNetwork {
         
         // Ensure the output tensor is registered with the graph
         if output.id == 0 {
-            println!("Debug: Registering final output tensor in NeuralNetwork::forward");
+            debug_print!(1, "Debug: Registering final output tensor in NeuralNetwork::forward");
             output = graph.register_tensor(output);
+        } else {
+            debug_print!(3, "Debug: Final output tensor already registered with ID {}", output.id);
         }
         
         // Print debug info to verify final tensor ID
-        println!("Debug: NeuralNetwork::forward final output tensor ID: {}", output.id);
+        debug_print!(2, "Debug: NeuralNetwork::forward final output tensor ID: {}", output.id);
         
-        // Return the final output tensor
+        // Return the final output tensor without re-registering
         output
     }
 }

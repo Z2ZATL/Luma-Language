@@ -43,14 +43,16 @@ impl ComputationGraph {
         }
     }
 
-    pub fn register_tensor(&mut self, tensor: Tensor) -> Tensor {
-        let mut tensor = tensor.clone();
+    pub fn register_tensor(&mut self, mut tensor: Tensor) -> Tensor {
         let id = self.next_id;
         self.next_id += 1;
 
         tensor.id = id;
+        
+        // Insert a copy into the hashtable, but only clone once
         self.tensors.insert(id, tensor.clone());
-
+        
+        // Return the original tensor with the ID assigned
         tensor
     }
 
@@ -164,7 +166,7 @@ impl ComputationGraph {
             if op.output == output_id {
                 op_queue.push_back(op_id);
                 visited_ops.insert(op_id);
-                println!("Debug: Added op {} to queue (output matches tensor {})", op_id, output_id);
+                debug_print!(3, "Debug: Added op {} to queue (output matches tensor {})", op_id, output_id);
             }
         }
 
@@ -173,7 +175,7 @@ impl ComputationGraph {
             let op = match self.operations.get(op_id) {
                 Some(op) => op.clone(),
                 None => {
-                    println!("Debug: Warning - Operation {} not found", op_id);
+                    debug_print!(1, "Debug: Warning - Operation {} not found", op_id);
                     continue;
                 }
             };
@@ -182,12 +184,12 @@ impl ComputationGraph {
             let output_grad = match self.tensors.get(&op.output) {
                 Some(tensor) => tensor.get_grad(),
                 None => {
-                    println!("Debug: Warning - Tensor {} not found", op.output);
+                    debug_print!(1, "Debug: Warning - Tensor {} not found", op.output);
                     continue;
                 }
             };
 
-            println!("Debug: Processing op {} (type: {}), output grad: {:?}", op_id, op.op_type, output_grad);
+            debug_print!(2, "Debug: Processing op {} (type: {}), output grad: {:?}", op_id, op.op_type, output_grad);
 
             // Compute gradient for input tensors based on operation type
             match op.op_type.as_str() {
@@ -197,61 +199,63 @@ impl ComputationGraph {
                         let input_a_id = op.inputs[0];
                         let input_b_id = op.inputs[1];
                         
-                        // Clone necessary data to avoid borrow checker issues
-                        let (output_grad_clone, input_a_data_clone, input_b_data_clone) = {
+                        // Get references to all needed tensors first
+                        let (output_grad_opt, input_a_opt, input_b_opt) = {
                             if let (Some(input_a), Some(input_b), Some(output_tensor)) = (
                                 self.tensors.get(&input_a_id), 
                                 self.tensors.get(&input_b_id),
                                 self.tensors.get(&op.output)
                             ) {
-                                if let Some(output_grad) = output_tensor.get_grad() {
-                                    (
-                                        output_grad.clone(),
-                                        input_a.get_data().clone(),
-                                        input_b.get_data().clone()
-                                    )
-                                } else {
-                                    continue;
-                                }
+                                (output_tensor.get_grad(), Some(input_a), Some(input_b))
                             } else {
-                                continue;
+                                (None, None, None)
                             }
                         };
                         
-                        // Compute gradients for input_a (first operand)
-                        if let Some(input_a) = self.tensors.get(&input_a_id) {
+                        // Only proceed if we have all necessary data
+                        if let (Some(output_grad), Some(input_a), Some(input_b)) = 
+                               (output_grad_opt, input_a_opt, input_b_opt) {
+                            
+                            // Cache the data we need for calculations
+                            let output_grad_val = if !output_grad.is_empty() { output_grad[0] } else { 0.0 };
+                            let input_a_data = input_a.get_data();
+                            let input_b_data = input_b.get_data();
+                            
+                            // Compute gradients for input_a (first operand) if needed
                             if input_a.requires_grad() {
-                                let mut grad_a = vec![0.0; input_a_data_clone.len()];
+                                let mut grad_a = vec![0.0; input_a_data.len()];
                                 
                                 // Simple case: grad_a = output_grad * input_b
                                 for i in 0..grad_a.len() {
-                                    if i < input_b_data_clone.len() {
-                                        grad_a[i] = output_grad_clone[0] * input_b_data_clone[i];
+                                    if i < input_b_data.len() {
+                                        grad_a[i] = output_grad_val * input_b_data[i];
                                     }
                                 }
                                 
+                                // Apply gradients in a separate mutable borrow
                                 if let Some(input_a_mut) = self.tensors.get_mut(&input_a_id) {
                                     input_a_mut.accumulate_grad(&grad_a);
-                                    println!("Debug: Matmul - Updated grad for input_a tensor {}: {:?}", input_a_id, input_a_mut.get_grad());
+                                    debug_print!(2, "Debug: Matmul - Updated grad for input_a tensor {}: {:?}", 
+                                             input_a_id, input_a_mut.get_grad());
                                 }
                             }
-                        }
-                        
-                        // Compute gradients for input_b (second operand)
-                        if let Some(input_b) = self.tensors.get(&input_b_id) {
+                            
+                            // Compute gradients for input_b (second operand) if needed
                             if input_b.requires_grad() {
-                                let mut grad_b = vec![0.0; input_b_data_clone.len()];
+                                let mut grad_b = vec![0.0; input_b_data.len()];
                                 
                                 // Simple case: grad_b = output_grad * input_a
                                 for i in 0..grad_b.len() {
-                                    if i < input_a_data_clone.len() {
-                                        grad_b[i] = output_grad_clone[0] * input_a_data_clone[i];
+                                    if i < input_a_data.len() {
+                                        grad_b[i] = output_grad_val * input_a_data[i];
                                     }
                                 }
                                 
+                                // Apply gradients in a separate mutable borrow
                                 if let Some(input_b_mut) = self.tensors.get_mut(&input_b_id) {
                                     input_b_mut.accumulate_grad(&grad_b);
-                                    println!("Debug: Matmul - Updated grad for input_b tensor {}: {:?}", input_b_id, input_b_mut.get_grad());
+                                    debug_print!(2, "Debug: Matmul - Updated grad for input_b tensor {}: {:?}", 
+                                             input_b_id, input_b_mut.get_grad());
                                 }
                             }
                         }
@@ -263,10 +267,11 @@ impl ComputationGraph {
                         let input_a_id = op.inputs[0];
                         let input_b_id = op.inputs[1];
                         
-                        // Clone the gradient to avoid borrow checker issues
-                        let output_grad_clone = if let Some(output_tensor) = self.tensors.get(&op.output) {
-                            if let Some(output_grad) = output_tensor.get_grad() {
-                                output_grad.clone()
+                        // Get output tensor and read output gradient
+                        let output_grad_vec = if let Some(output_tensor) = self.tensors.get(&op.output) {
+                            if let Some(grad) = output_tensor.get_grad() {
+                                // Create a copy only once, used for both inputs
+                                grad.to_vec()
                             } else {
                                 continue;
                             }
@@ -274,22 +279,24 @@ impl ComputationGraph {
                             continue;
                         };
                         
-                        // Propagate gradient to first input
+                        // Check and propagate gradient to first input
                         if let Some(input_a) = self.tensors.get(&input_a_id) {
                             if input_a.requires_grad() {
                                 if let Some(input_a_mut) = self.tensors.get_mut(&input_a_id) {
-                                    input_a_mut.accumulate_grad(&output_grad_clone);
-                                    println!("Debug: Add - Updated grad for input_a tensor {}: {:?}", input_a_id, input_a_mut.get_grad());
+                                    input_a_mut.accumulate_grad(&output_grad_vec);
+                                    debug_print!(2, "Debug: Add - Updated grad for input_a tensor {}: {:?}", 
+                                             input_a_id, input_a_mut.get_grad());
                                 }
                             }
                         }
                         
-                        // Propagate gradient to second input
+                        // Check and propagate gradient to second input
                         if let Some(input_b) = self.tensors.get(&input_b_id) {
                             if input_b.requires_grad() {
                                 if let Some(input_b_mut) = self.tensors.get_mut(&input_b_id) {
-                                    input_b_mut.accumulate_grad(&output_grad_clone);
-                                    println!("Debug: Add - Updated grad for input_b tensor {}: {:?}", input_b_id, input_b_mut.get_grad());
+                                    input_b_mut.accumulate_grad(&output_grad_vec);
+                                    debug_print!(2, "Debug: Add - Updated grad for input_b tensor {}: {:?}", 
+                                             input_b_id, input_b_mut.get_grad());
                                 }
                             }
                         }
@@ -300,15 +307,15 @@ impl ComputationGraph {
                     if !op.inputs.is_empty() {
                         let input_id = op.inputs[0];
                         
-                        // Clone the needed data first to avoid borrow checker issues
-                        let (input_data_clone, output_grad_clone) = {
+                        // Get references to the input and output tensors
+                        let (input_requires_grad, input_data, output_grad) = {
                             if let (Some(input), Some(output_tensor)) = (
                                 self.tensors.get(&input_id),
                                 self.tensors.get(&op.output)
                             ) {
                                 if input.requires_grad() {
                                     if let Some(output_grad) = output_tensor.get_grad() {
-                                        (input.get_data().clone(), output_grad.clone())
+                                        (true, input.get_data().to_vec(), output_grad.to_vec())
                                     } else {
                                         continue;
                                     }
@@ -320,22 +327,25 @@ impl ComputationGraph {
                             }
                         };
                         
-                        // Now use the cloned data to compute gradients
-                        let mut relu_grad = vec![0.0; input_data_clone.len()];
-                        
-                        // Calculate relu gradient
-                        for i in 0..input_data_clone.len() {
-                            relu_grad[i] = if input_data_clone[i] > 0.0 { 
-                                output_grad_clone[i] 
-                            } else { 
-                                0.0 
-                            };
-                        }
-                        
-                        // Finally update the gradient in a separate mutable borrow
-                        if let Some(input_mut) = self.tensors.get_mut(&input_id) {
-                            input_mut.accumulate_grad(&relu_grad);
-                            println!("Debug: ReLU - Updated grad for input tensor {}: {:?}", input_id, input_mut.get_grad());
+                        if input_requires_grad {
+                            // Create gradient vector
+                            let mut relu_grad = vec![0.0; input_data.len()];
+                            
+                            // Calculate relu gradient
+                            for i in 0..input_data.len() {
+                                relu_grad[i] = if input_data[i] > 0.0 { 
+                                    output_grad[i] 
+                                } else { 
+                                    0.0 
+                                };
+                            }
+                            
+                            // Apply gradients in a separate mutable borrow
+                            if let Some(input_mut) = self.tensors.get_mut(&input_id) {
+                                input_mut.accumulate_grad(&relu_grad);
+                                debug_print!(2, "Debug: ReLU - Updated grad for input tensor {}: {:?}", 
+                                         input_id, input_mut.get_grad());
+                            }
                         }
                     }
                 },
@@ -344,15 +354,15 @@ impl ComputationGraph {
                     if !op.inputs.is_empty() {
                         let input_id = op.inputs[0];
                         
-                        // Clone the needed data first to avoid borrow checker issues
-                        let (output_data_clone, output_grad_clone) = {
+                        // Get references to tensors first to check requirements
+                        let (input_requires_grad, output_data, output_grad) = {
                             if let (Some(input), Some(output_tensor)) = (
                                 self.tensors.get(&input_id),
                                 self.tensors.get(&op.output)
                             ) {
                                 if input.requires_grad() {
                                     if let Some(output_grad) = output_tensor.get_grad() {
-                                        (output_tensor.get_data().clone(), output_grad.clone())
+                                        (true, output_tensor.get_data().to_vec(), output_grad.to_vec())
                                     } else {
                                         continue;
                                     }
@@ -364,19 +374,22 @@ impl ComputationGraph {
                             }
                         };
                         
-                        // Now compute gradients using cloned data
-                        let mut sigmoid_grad = vec![0.0; output_data_clone.len()];
-                        
-                        // Calculate sigmoid gradient: sigmoid(x) * (1 - sigmoid(x)) * upstream_grad
-                        for i in 0..output_data_clone.len() {
-                            let sigmoid_val = output_data_clone[i];
-                            sigmoid_grad[i] = sigmoid_val * (1.0 - sigmoid_val) * output_grad_clone[i];
-                        }
-                        
-                        // Finally, update the gradients in a separate mutable borrow
-                        if let Some(input_mut) = self.tensors.get_mut(&input_id) {
-                            input_mut.accumulate_grad(&sigmoid_grad);
-                            println!("Debug: Sigmoid - Updated grad for input tensor {}: {:?}", input_id, input_mut.get_grad());
+                        if input_requires_grad {
+                            // Compute gradients using copied data (only once)
+                            let mut sigmoid_grad = vec![0.0; output_data.len()];
+                            
+                            // Calculate sigmoid gradient: sigmoid(x) * (1 - sigmoid(x)) * upstream_grad
+                            for i in 0..output_data.len() {
+                                let sigmoid_val = output_data[i];
+                                sigmoid_grad[i] = sigmoid_val * (1.0 - sigmoid_val) * output_grad[i];
+                            }
+                            
+                            // Update the gradients in a separate mutable borrow
+                            if let Some(input_mut) = self.tensors.get_mut(&input_id) {
+                                input_mut.accumulate_grad(&sigmoid_grad);
+                                debug_print!(2, "Debug: Sigmoid - Updated grad for input tensor {}: {:?}", 
+                                         input_id, input_mut.get_grad());
+                            }
                         }
                     }
                 },
@@ -386,8 +399,8 @@ impl ComputationGraph {
                         let pred_id = op.inputs[0]; // Predicted probabilities
                         let target_id = op.inputs[1]; // Target values (0 or 1)
                         
-                        // Clone the needed data first to avoid borrow checker issues
-                        let (pred_data_clone, target_data_clone, output_grad_clone) = {
+                        // Get references to tensors first
+                        let (pred_requires_grad, pred_data, target_data, output_grad_val) = {
                             if let (Some(pred), Some(target), Some(output_tensor)) = (
                                 self.tensors.get(&pred_id),
                                 self.tensors.get(&target_id),
@@ -395,11 +408,8 @@ impl ComputationGraph {
                             ) {
                                 if pred.requires_grad() {
                                     if let Some(output_grad) = output_tensor.get_grad() {
-                                        (
-                                            pred.get_data().clone(), 
-                                            target.get_data().clone(), 
-                                            output_grad.clone()
-                                        )
+                                        let grad_val = if !output_grad.is_empty() { output_grad[0] } else { 1.0 };
+                                        (true, pred.get_data().to_vec(), target.get_data().to_vec(), grad_val)
                                     } else {
                                         continue;
                                     }
@@ -411,32 +421,35 @@ impl ComputationGraph {
                             }
                         };
                         
-                        // Now compute the gradients using cloned data
-                        let mut bce_grad = vec![0.0; pred_data_clone.len()];
-                        
-                        // Calculate BCE gradient
-                        for i in 0..pred_data_clone.len().min(target_data_clone.len()) {
-                            let p = pred_data_clone[i].clamp(1e-7, 1.0 - 1e-7); // Clip to avoid division by zero
-                            let y = target_data_clone[i];
+                        if pred_requires_grad {
+                            // Compute gradients using data copied only once
+                            let mut bce_grad = vec![0.0; pred_data.len()];
                             
-                            // Gradient of BCE: -y/p + (1-y)/(1-p)
-                            bce_grad[i] = (-y / p + (1.0 - y) / (1.0 - p)) * output_grad_clone[0];
-                        }
-                        
-                        // Finally, update the gradients in a separate mutable borrow
-                        if let Some(pred_mut) = self.tensors.get_mut(&pred_id) {
-                            pred_mut.accumulate_grad(&bce_grad);
-                            println!("Debug: BCE - Updated grad for pred tensor {}: {:?}", pred_id, pred_mut.get_grad());
+                            // Calculate BCE gradient
+                            for i in 0..pred_data.len().min(target_data.len()) {
+                                let p = pred_data[i].clamp(1e-7, 1.0 - 1e-7); // Clip to avoid division by zero
+                                let y = target_data[i];
+                                
+                                // Gradient of BCE: -y/p + (1-y)/(1-p)
+                                bce_grad[i] = (-y / p + (1.0 - y) / (1.0 - p)) * output_grad_val;
+                            }
+                            
+                            // Update the gradients in a separate mutable borrow
+                            if let Some(pred_mut) = self.tensors.get_mut(&pred_id) {
+                                pred_mut.accumulate_grad(&bce_grad);
+                                debug_print!(2, "Debug: BCE - Updated grad for pred tensor {}: {:?}", 
+                                         pred_id, pred_mut.get_grad());
+                            }
                         }
                     }
                 },
                 "concat" => {
                     // For concat: Distribute output gradient to all input tensors
                     if !op.inputs.is_empty() {
-                        // Clone the output gradient
-                        let output_grad_clone = if let Some(output_tensor) = self.tensors.get(&op.output) {
-                            if let Some(output_grad) = output_tensor.get_grad() {
-                                output_grad.clone()
+                        // Get output gradient once (copy to avoid borrow checker issues)
+                        let output_grad = if let Some(output_tensor) = self.tensors.get(&op.output) {
+                            if let Some(grad) = output_tensor.get_grad() {
+                                grad.to_vec()
                             } else {
                                 continue;
                             }
@@ -444,44 +457,43 @@ impl ComputationGraph {
                             continue;
                         };
                         
-                        // Process each input tensor - first collect input sizes
+                        // Process each input tensor - first collect input sizes with requires_grad info
                         let mut input_sizes = Vec::new();
                         for input_id in &op.inputs {
                             if let Some(input_tensor) = self.tensors.get(input_id) {
-                                if input_tensor.requires_grad() {
-                                    input_sizes.push((input_id, input_tensor.get_data().len()));
-                                } else {
-                                    input_sizes.push((input_id, 0)); // Mark as not requiring gradients
-                                }
+                                let requires_grad = input_tensor.requires_grad();
+                                let size = input_tensor.get_data().len();
+                                input_sizes.push((*input_id, size, requires_grad));
                             }
                         }
                         
-                        // Now process each input with collected sizes
+                        // Now process each input 
                         let mut offset = 0;
-                        for (input_id, input_size) in input_sizes {
-                            if input_size > 0 { // Only process inputs that require gradients
+                        for (input_id, input_size, requires_grad) in input_sizes {
+                            if requires_grad && input_size > 0 {
                                 // Extract the relevant part of the output gradient for this input
                                 let mut input_grad = vec![0.0; input_size];
-                                for i in 0..input_size.min(output_grad_clone.len() - offset) {
-                                    if offset + i < output_grad_clone.len() {
-                                        input_grad[i] = output_grad_clone[offset + i];
+                                for i in 0..input_size.min(output_grad.len() - offset) {
+                                    if offset + i < output_grad.len() {
+                                        input_grad[i] = output_grad[offset + i];
                                     }
                                 }
                                 
                                 // Accumulate gradient to the input tensor
-                                if let Some(input_mut) = self.tensors.get_mut(input_id) {
+                                if let Some(input_mut) = self.tensors.get_mut(&input_id) {
                                     input_mut.accumulate_grad(&input_grad);
-                                    println!("Debug: Concat - Updated grad for input tensor {}: {:?}", input_id, input_mut.get_grad());
+                                    debug_print!(2, "Debug: Concat - Updated grad for input tensor {}: {:?}", 
+                                             input_id, input_mut.get_grad());
                                 }
                             }
                             
-                            // Always advance offset by input size
+                            // Always advance offset by input size regardless of requires_grad
                             offset += input_size;
                         }
                     }
                 },
                 _ => {
-                    println!("Debug: Warning - Unknown operation type: {}", op.op_type);
+                    debug_print!(1, "Debug: Warning - Unknown operation type: {}", op.op_type);
                 }
             }
 

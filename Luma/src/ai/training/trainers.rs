@@ -104,13 +104,17 @@ impl<T: Optimizer> Trainer<T> {
                     let loss_tensor = Tensor::with_grad(vec![loss], vec![1]);
                     let loss_tensor = graph.register_tensor(loss_tensor);
                     
-                    // Verify output tensor is properly registered
-                    if output_tensor.id == 0 {
+                    // Verify output tensor is properly registered and return properly registered tensor
+                    let output_tensor = if output_tensor.id == 0 {
                         debug_print!(1, "Debug: WARNING - Output tensor not registered properly before BCE");
-                        // Re-register it if needed
+                        // Re-register it if needed and use the new registered tensor
                         let output_tensor_copy = Tensor::with_grad(output.clone(), vec![output.len()]);
-                        let _output_tensor = graph.register_tensor(output_tensor_copy);
-                    }
+                        let registered_output = graph.register_tensor(output_tensor_copy);
+                        debug_print!(1, "Debug: Re-registered output tensor with ID: {}", registered_output.id);
+                        registered_output
+                    } else {
+                        output_tensor
+                    };
                     
                     // Add operation to compute graph while preserving tensor connectivity
                     graph.add_operation("binary_cross_entropy", vec![output_tensor.clone(), label_tensor], loss_tensor.clone());
@@ -129,7 +133,9 @@ impl<T: Optimizer> Trainer<T> {
                     total += 1;
 
                     // Perform backpropagation
+                    debug_print!(1, "Debug: Starting backpropagation from loss tensor ID {}", loss_tensor.id);
                     graph.backward(loss_tensor.id);
+                    debug_print!(1, "Debug: Completed backpropagation");
                     
                     // Check if gradients are flowing correctly
                     let mut has_gradients = false;
