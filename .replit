@@ -28,6 +28,10 @@ args = "TestLuma"
 task = "workflow.run"
 args = "Luma_REPL"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "setup_rust"
+
 [[workflows.workflow]]
 name = "LumaSetup"
 author = "agent"
@@ -90,6 +94,14 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd Luma && cargo run -- --repl"
+
+[[workflows.workflow]]
+name = "setup_rust"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python setup_luma_structure.py --setup-rust"
 
 [deployment]
 run = ["sh", "-c", "python setup_luma_structure.py"]
