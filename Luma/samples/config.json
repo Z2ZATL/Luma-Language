@@ -1,0 +1,19 @@
+{
+  "model": {
+    "name": "neural_network",
+    "layers": [4, 8, 3],
+    "activation": "relu",
+    "output_activation": "softmax"
+  },
+  "training": {
+    "batch_size": 32,
+    "learning_rate": 0.01,
+    "epochs": 100,
+    "optimizer": "adam"
+  },
+  "data": {
+    "train_ratio": 0.8,
+    "normalization": "min_max",
+    "shuffle": true
+  }
+}

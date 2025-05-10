@@ -1,0 +1,31 @@
+# คำสั่งพื้นฐานสำหรับการโหลดข้อมูลใน Luma REPL
+
+# 1. โหลดข้อมูลจากไฟล์ CSV
+load dataset "samples/iris.csv" as iris
+
+# 2. โหลดข้อมูลแบบ lazy loading
+load dataset "samples/iris.csv" as iris_lazy lazy=true
+
+# 3. ดูข้อมูลที่โหลดมา
+print dataset iris
+
+# 4. แบ่งข้อมูลเป็นชุดฝึกและชุดทดสอบ
+split dataset iris ratio=0.3
+
+# 5. ประมวลผลข้อมูลด้วยวิธี normalize
+preprocess iris method=normalize as iris_norm
+
+# 6. ประมวลผลข้อมูลด้วยวิธี min-max scaling
+preprocess iris method=scale as iris_scaled
+
+# 7. สร้างข้อมูลเพิ่มด้วยวิธี data augmentation
+augment iris method=noise(0.1) as iris_noisy
+
+# 8. ลบข้อมูลเมื่อไม่ได้ใช้งานแล้ว
+clear datasets
+
+# 9. โหลดข้อมูล multi-modal
+load multimodal "samples/config.json" as model_config
+
+# 10. ลิสต์รายการข้อมูลทั้งหมดที่มี
+list datasets
