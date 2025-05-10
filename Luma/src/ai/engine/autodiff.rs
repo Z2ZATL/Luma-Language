@@ -199,64 +199,65 @@ impl ComputationGraph {
                         let input_a_id = op.inputs[0];
                         let input_b_id = op.inputs[1];
                         
-                        // Get references to all needed tensors first
-                        let (output_grad_opt, input_a_opt, input_b_opt) = {
-                            if let (Some(input_a), Some(input_b), Some(output_tensor)) = (
-                                self.tensors.get(&input_a_id), 
-                                self.tensors.get(&input_b_id),
-                                self.tensors.get(&op.output)
-                            ) {
-                                (output_tensor.get_grad(), Some(input_a), Some(input_b))
+                        // Get the output gradient first
+                        let output_grad_val = if let Some(output_tensor) = self.tensors.get(&op.output) {
+                            if let Some(output_grad) = output_tensor.get_grad() {
+                                if !output_grad.is_empty() { output_grad[0] } else { 0.0 }
                             } else {
-                                (None, None, None)
+                                continue;
                             }
+                        } else {
+                            continue;
                         };
                         
-                        // Only proceed if we have all necessary data
-                        if let (Some(output_grad), Some(input_a), Some(input_b)) = 
-                               (output_grad_opt, input_a_opt, input_b_opt) {
+                        // Get data from input tensors and clone it to avoid borrow checker issues
+                        let (input_a_data, input_b_data, input_a_requires_grad, input_b_requires_grad) = {
+                            let input_a = if let Some(a) = self.tensors.get(&input_a_id) { a } else { continue; };
+                            let input_b = if let Some(b) = self.tensors.get(&input_b_id) { b } else { continue; };
                             
-                            // Cache the data we need for calculations
-                            let output_grad_val = if !output_grad.is_empty() { output_grad[0] } else { 0.0 };
-                            let input_a_data = input_a.get_data();
-                            let input_b_data = input_b.get_data();
+                            (
+                                input_a.get_data().to_vec(),  // Clone data to avoid borrow issue
+                                input_b.get_data().to_vec(),  // Clone data to avoid borrow issue
+                                input_a.requires_grad(),
+                                input_b.requires_grad()
+                            )
+                        };
+                        
+                        // Compute and apply gradients for input_a (first operand) if needed
+                        if input_a_requires_grad {
+                            let mut grad_a = vec![0.0; input_a_data.len()];
                             
-                            // Compute gradients for input_a (first operand) if needed
-                            if input_a.requires_grad() {
-                                let mut grad_a = vec![0.0; input_a_data.len()];
-                                
-                                // Simple case: grad_a = output_grad * input_b
-                                for i in 0..grad_a.len() {
-                                    if i < input_b_data.len() {
-                                        grad_a[i] = output_grad_val * input_b_data[i];
-                                    }
-                                }
-                                
-                                // Apply gradients in a separate mutable borrow
-                                if let Some(input_a_mut) = self.tensors.get_mut(&input_a_id) {
-                                    input_a_mut.accumulate_grad(&grad_a);
-                                    debug_print!(2, "Debug: Matmul - Updated grad for input_a tensor {}: {:?}", 
-                                             input_a_id, input_a_mut.get_grad());
+                            // Simple case: grad_a = output_grad * input_b
+                            for i in 0..grad_a.len() {
+                                if i < input_b_data.len() {
+                                    grad_a[i] = output_grad_val * input_b_data[i];
                                 }
                             }
                             
-                            // Compute gradients for input_b (second operand) if needed
-                            if input_b.requires_grad() {
-                                let mut grad_b = vec![0.0; input_b_data.len()];
-                                
-                                // Simple case: grad_b = output_grad * input_a
-                                for i in 0..grad_b.len() {
-                                    if i < input_a_data.len() {
-                                        grad_b[i] = output_grad_val * input_a_data[i];
-                                    }
+                            // Apply gradients
+                            if let Some(input_a_mut) = self.tensors.get_mut(&input_a_id) {
+                                input_a_mut.accumulate_grad(&grad_a);
+                                debug_print!(2, "Debug: Matmul - Updated grad for input_a tensor {}: {:?}", 
+                                         input_a_id, input_a_mut.get_grad());
+                            }
+                        }
+                        
+                        // Compute and apply gradients for input_b (second operand) if needed
+                        if input_b_requires_grad {
+                            let mut grad_b = vec![0.0; input_b_data.len()];
+                            
+                            // Simple case: grad_b = output_grad * input_a
+                            for i in 0..grad_b.len() {
+                                if i < input_a_data.len() {
+                                    grad_b[i] = output_grad_val * input_a_data[i];
                                 }
-                                
-                                // Apply gradients in a separate mutable borrow
-                                if let Some(input_b_mut) = self.tensors.get_mut(&input_b_id) {
-                                    input_b_mut.accumulate_grad(&grad_b);
-                                    debug_print!(2, "Debug: Matmul - Updated grad for input_b tensor {}: {:?}", 
-                                             input_b_id, input_b_mut.get_grad());
-                                }
+                            }
+                            
+                            // Apply gradients
+                            if let Some(input_b_mut) = self.tensors.get_mut(&input_b_id) {
+                                input_b_mut.accumulate_grad(&grad_b);
+                                debug_print!(2, "Debug: Matmul - Updated grad for input_b tensor {}: {:?}", 
+                                         input_b_id, input_b_mut.get_grad());
                             }
                         }
                     }
@@ -279,25 +280,28 @@ impl ComputationGraph {
                             continue;
                         };
                         
-                        // Check and propagate gradient to first input
-                        if let Some(input_a) = self.tensors.get(&input_a_id) {
-                            if input_a.requires_grad() {
-                                if let Some(input_a_mut) = self.tensors.get_mut(&input_a_id) {
-                                    input_a_mut.accumulate_grad(&output_grad_vec);
-                                    debug_print!(2, "Debug: Add - Updated grad for input_a tensor {}: {:?}", 
-                                             input_a_id, input_a_mut.get_grad());
-                                }
+                        // Get whether each input requires gradients or not
+                        let (input_a_requires_grad, input_b_requires_grad) = {
+                            let input_a_req = if let Some(a) = self.tensors.get(&input_a_id) { a.requires_grad() } else { false };
+                            let input_b_req = if let Some(b) = self.tensors.get(&input_b_id) { b.requires_grad() } else { false };
+                            (input_a_req, input_b_req)
+                        };
+                        
+                        // Propagate gradient to first input if needed
+                        if input_a_requires_grad {
+                            if let Some(input_a_mut) = self.tensors.get_mut(&input_a_id) {
+                                input_a_mut.accumulate_grad(&output_grad_vec);
+                                debug_print!(2, "Debug: Add - Updated grad for input_a tensor {}: {:?}", 
+                                         input_a_id, input_a_mut.get_grad());
                             }
                         }
                         
-                        // Check and propagate gradient to second input
-                        if let Some(input_b) = self.tensors.get(&input_b_id) {
-                            if input_b.requires_grad() {
-                                if let Some(input_b_mut) = self.tensors.get_mut(&input_b_id) {
-                                    input_b_mut.accumulate_grad(&output_grad_vec);
-                                    debug_print!(2, "Debug: Add - Updated grad for input_b tensor {}: {:?}", 
-                                             input_b_id, input_b_mut.get_grad());
-                                }
+                        // Propagate gradient to second input if needed
+                        if input_b_requires_grad {
+                            if let Some(input_b_mut) = self.tensors.get_mut(&input_b_id) {
+                                input_b_mut.accumulate_grad(&output_grad_vec);
+                                debug_print!(2, "Debug: Add - Updated grad for input_b tensor {}: {:?}", 
+                                         input_b_id, input_b_mut.get_grad());
                             }
                         }
                     }

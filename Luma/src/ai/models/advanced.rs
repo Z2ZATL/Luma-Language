@@ -1,6 +1,7 @@
 use crate::ai::models::layers::Layer;
 use crate::ai::engine::autodiff::ComputationGraph;
 use crate::ai::engine::tensor::Tensor;
+use crate::debug_print;
 
 #[derive(Debug)]
 pub struct NeuralNetwork {

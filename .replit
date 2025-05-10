@@ -5,7 +5,7 @@ channel = "stable-24_05"
 packages = ["rustup"]
 
 [workflows]
-runButton = "Luma Test Run"
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "Project"
@@ -19,6 +19,10 @@ args = "LumaSetup"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "run_luma_setup"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "TestLuma"
 
 [[workflows.workflow]]
 name = "LumaSetup"
@@ -66,6 +70,14 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cargo test --manifest-path=Luma/Cargo.toml"
+
+[[workflows.workflow]]
+name = "TestLuma"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd Luma && cargo test -- --nocapture"
 
 [deployment]
 run = ["sh", "-c", "python setup_luma_structure.py"]
