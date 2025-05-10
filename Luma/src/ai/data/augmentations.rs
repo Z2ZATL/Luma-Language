@@ -17,7 +17,7 @@ pub enum AugmentationMethod {
     // Data augmentation techniques
     Noise(f64),         // Add Gaussian noise with std deviation
     Dropout(f64),       // Randomly drop values with probability
-    Rotate90,           // Rotate 2D data by 90 degrees
+    Rotation,           // Rotate 2D data by 90 degrees
     Mirror,             // Mirror data along an axis
     Shuffle,            // Shuffle rows
 }
@@ -274,7 +274,7 @@ fn apply_augmentation(data: &[Vec<f64>], method: AugmentationMethod) -> Result<V
             
             Ok(result)
         },
-        AugmentationMethod::Rotate90 => {
+        AugmentationMethod::Rotation => {
             // Only works for 2D data with equal dimensions
             let row_count = data.len();
             if row_count == 0 {
@@ -445,7 +445,7 @@ pub fn print_augmentation(name: &str) {
                     .map(|i| Cell::new(&format!("Col {}", i)))
                     .collect(),
             };
-            table.add_row(Row::new(headers));
+            table.add_row(Row::new(headers.clone()));
             
             // Add data rows (limit to 10 rows if there are too many)
             let max_rows = 10.min(data.len());

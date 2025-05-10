@@ -217,8 +217,8 @@ pub fn image_to_matrix(image_data: &MultiModalData) -> Result<Vec<Vec<f64>>, Str
                     
                     // Add each channel value
                     for c in 0..*channels {
-                        if pos + c as usize < data.len() {
-                            row.push(data[pos + c as usize] as f64 / 255.0); // Normalize to [0,1]
+                        if pos + (c as usize) < data.len() {
+                            row.push(data[pos + (c as usize)] as f64 / 255.0); // Normalize to [0,1]
                         }
                     }
                 }
@@ -235,7 +235,7 @@ pub fn image_to_matrix(image_data: &MultiModalData) -> Result<Vec<Vec<f64>>, Str
 /// Convert audio data to a numerical matrix (for ML use)
 pub fn audio_to_matrix(audio_data: &MultiModalData) -> Result<Vec<Vec<f64>>, String> {
     match audio_data {
-        MultiModalData::Audio { sample_rate, channels, samples } => {
+        MultiModalData::Audio { sample_rate: _, channels: _, samples } => {
             // Determine frame size (number of samples per frame)
             let frame_size = 1024; // Typical frame size for audio processing
             let num_frames = samples.len() / frame_size;

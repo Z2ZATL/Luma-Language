@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::BufReader;
 use std::sync::RwLock;
 use csv::ReaderBuilder;
 use lazy_static::lazy_static;
@@ -10,14 +10,14 @@ use crate::ai::data::preprocessors;
 
 #[derive(Debug, Clone)]
 pub struct DatasetMetadata {
-    name: String,
-    path: Option<String>,          // Store file path for lazy loading
-    headers: Option<Vec<String>>,
-    data: Vec<Vec<f64>>,           // Features only
-    labels: Vec<Vec<f64>>,         // Labels from the last column (as Vec<f64> for compatibility)
-    lazy: bool,                    // Whether this dataset is lazily loaded
-    loaded: bool,                  // Whether data has been loaded yet
-    label_column: Option<usize>,   // Which column contains labels (default: last)
+    pub name: String,
+    pub path: Option<String>,          // Store file path for lazy loading
+    pub headers: Option<Vec<String>>,
+    pub data: Vec<Vec<f64>>,           // Features only
+    pub labels: Vec<Vec<f64>>,         // Labels from the last column (as Vec<f64> for compatibility)
+    pub lazy: bool,                    // Whether this dataset is lazily loaded
+    pub loaded: bool,                  // Whether data has been loaded yet
+    pub label_column: Option<usize>,   // Which column contains labels (default: last)
 }
 
 impl DatasetMetadata {
@@ -27,6 +27,14 @@ impl DatasetMetadata {
 
     pub fn get_labels(&self) -> &Vec<Vec<f64>> {
         &self.labels
+    }
+    
+    pub fn get_feature_count(&self) -> usize {
+        if self.data.is_empty() {
+            0
+        } else {
+            self.data[0].len()
+        }
     }
     
     pub fn get_name(&self) -> &str {
@@ -43,7 +51,7 @@ impl DatasetMetadata {
 }
 
 lazy_static! {
-    static ref DATASETS: RwLock<HashMap<String, DatasetMetadata>> = RwLock::new(HashMap::new());
+    pub static ref DATASETS: RwLock<HashMap<String, DatasetMetadata>> = RwLock::new(HashMap::new());
 }
 
 /// Loads a dataset from a CSV file
@@ -241,7 +249,7 @@ pub fn print_dataset(name: &str) {
                 .map(|i| Cell::new(&format!("Col {}", i)))
                 .collect(),
         };
-        table.add_row(Row::new(headers));
+        table.add_row(Row::new(headers.clone()));
         
         // Add data rows (limit to 10 rows if there are too many)
         let max_rows = 10.min(dataset.data.len());
@@ -422,4 +430,17 @@ pub fn split_dataset(name: &str, test_ratio: f64) -> Result<(String, String), St
              name, train_name, train_size, test_name, test_size);
              
     Ok((train_name, test_name))
+}
+
+/// Clear all loaded datasets from memory
+pub fn clear_datasets() {
+    match DATASETS.write() {
+        Ok(mut datasets) => {
+            datasets.clear();
+            println!("All datasets cleared from memory.");
+        },
+        Err(e) => {
+            println!("Error clearing datasets: {}", e);
+        }
+    }
 }

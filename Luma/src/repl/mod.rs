@@ -1,13 +1,48 @@
 use std::io::{self, Write};
-use crate::ai::data::{loaders, augmentations};
+use crate::ai::data::{loaders, augmentations, preprocessors, multi_modal};
+use crate::ai::data::preprocessors::PreprocessingMethod;
+use crate::ai::data::augmentations::AugmentationMethod;
 use crate::ai::training::trainers::Trainer;
 use crate::ai::models::advanced::NeuralNetwork;
 use crate::ai::models::optimizers::SGD;
 use crate::ai::training::schedulers::LearningRateScheduler;
 use crate::ai::training::callbacks::{LoggingCallback, CallbackList};
 
+// ฟังก์ชันช่วยในการแบ่ง parameters จากคำสั่ง
+fn parse_parameters(input: &str) -> std::collections::HashMap<String, String> {
+    let mut params = std::collections::HashMap::new();
+    let parts: Vec<&str> = input.split_whitespace().collect();
+    
+    for part in parts {
+        if part.contains('=') {
+            let kv: Vec<&str> = part.splitn(2, '=').collect();
+            if kv.len() == 2 {
+                params.insert(kv[0].to_string(), kv[1].to_string());
+            }
+        }
+    }
+    
+    params
+}
+
+// ฟังก์ชันสำหรับแสดงความช่วยเหลือ
+fn show_help() {
+    println!("Available commands:");
+    println!("  load dataset \"path\" as dataset_name [lazy=true|false]");
+    println!("  load multimodal \"path\" as dataset_name");
+    println!("  print dataset dataset_name");
+    println!("  split dataset dataset_name ratio=0.3");
+    println!("  preprocess dataset_name method=normalize|scale|log|sqrt as new_name");
+    println!("  augment dataset_name method=noise(0.1)|dropout(0.2)|rotation|mirror|shuffle as new_name");
+    println!("  list datasets");
+    println!("  clear datasets");
+    println!("  train epochs=10 batch_size=32 learning_rate=0.01");
+    println!("  exit");
+    println!("  help");
+}
+
 pub fn start_repl() {
-    println!("Luma REPL (type 'exit' to quit)");
+    println!("Luma REPL v1.0.0 (type 'help' for commands, 'exit' to quit)");
     loop {
         print!("Luma> ");
         io::stdout().flush().unwrap();
@@ -24,94 +59,217 @@ pub fn start_repl() {
             break;
         }
 
-        let parts: Vec<&str> = input.split_whitespace().collect();
-        match parts.get(0).copied() {
-            Some("load") => {
-                if parts.len() >= 4 && parts[1] == "dataset" && parts[3] == "as" {
+        if input == "help" {
+            show_help();
+            continue;
+        }
+
+        // แยกคำสั่งด้วย space แต่รักษา quoted strings
+        let mut parts = Vec::new();
+        let mut current_part = String::new();
+        let mut in_quotes = false;
+        
+        for c in input.chars() {
+            if c == '"' {
+                in_quotes = !in_quotes;
+                current_part.push(c);
+            } else if c == ' ' && !in_quotes {
+                if !current_part.is_empty() {
+                    parts.push(current_part);
+                    current_part = String::new();
+                }
+            } else {
+                current_part.push(c);
+            }
+        }
+        
+        if !current_part.is_empty() {
+            parts.push(current_part);
+        }
+        
+        if parts.is_empty() {
+            continue;
+        }
+
+        let command = parts[0].as_str();
+        match command {
+            "load" => {
+                if parts.len() >= 4 && (parts[1] == "dataset" || parts[1] == "multimodal") && parts.len() >= 5 && parts[3] == "as" {
+                    let data_type = parts[1].as_str();
                     let path = parts[2].trim_matches('"');
-                    let name = parts[4..].join(" ").trim().to_string();
-                    match loaders::load_dataset(path, &name) {
-                        Ok(()) => println!("Dataset {} loaded successfully", name),
-                        Err(e) => println!("Error loading dataset: {}", e),
+                    let name = parts[4].as_str();
+                    
+                    // Parse additional parameters
+                    let params = parse_parameters(&parts[5..].join(" "));
+                    let lazy = params.get("lazy").map_or(false, |v| v == "true");
+                    
+                    if data_type == "dataset" {
+                        match loaders::load_dataset(path, name, lazy, None) {
+                            Ok(_) => println!("Dataset {} loaded successfully", name),
+                            Err(e) => println!("Error loading dataset: {}", e),
+                        }
+                    } else if data_type == "multimodal" {
+                        match multi_modal::load_dataset(path, name) {
+                            Ok(_) => println!("Multi-modal dataset {} loaded successfully", name),
+                            Err(e) => println!("Error loading multi-modal dataset: {}", e),
+                        }
                     }
                 } else {
-                    println!("Usage: load dataset \"path\" as name");
+                    println!("Usage:");
+                    println!("  load dataset \"path\" as name [lazy=true|false]");
+                    println!("  load multimodal \"path\" as name");
                 }
             }
-            Some("print_dataset") => {
-                if parts.len() == 2 {
-                    let name = parts[1].trim_matches('"');
+            "print" => {
+                if parts.len() >= 3 && parts[1] == "dataset" {
+                    let name = parts[2].trim_matches('"');
                     loaders::print_dataset(name);
                 } else {
-                    println!("Usage: print_dataset \"name\"");
+                    println!("Usage: print dataset dataset_name");
                 }
             }
-            Some("augment") => {
-                if parts.len() >= 6 && parts[1] == "dataset" && parts[3] == "as" && parts[5].starts_with("lazy=") {
-                    let path = parts[2].trim_matches('"');
-                    let name = parts[4];
-                    let lazy_str = parts[5].split('=').nth(1).unwrap_or("false");
-                    let lazy = lazy_str == "True" || lazy_str == "true";
-                    match augmentations::augment_dataset(path, name, lazy) {
-                        Ok(()) => println!("Dataset {} augmented successfully", name),
-                        Err(e) => println!("Error augmenting dataset: {}", e),
+            "list" => {
+                if parts.len() >= 2 && parts[1] == "datasets" {
+                    loaders::list_datasets();
+                } else {
+                    println!("Usage: list datasets");
+                }
+            }
+            "clear" => {
+                if parts.len() >= 2 && parts[1] == "datasets" {
+                    loaders::clear_datasets();
+                    println!("All datasets cleared");
+                } else {
+                    println!("Usage: clear datasets");
+                }
+            }
+            "split" => {
+                if parts.len() >= 4 && parts[1] == "dataset" {
+                    let name = parts[2].trim_matches('"');
+                    let params = parse_parameters(&parts[3..].join(" "));
+                    
+                    if let Some(ratio_str) = params.get("ratio") {
+                        if let Ok(ratio) = ratio_str.parse::<f64>() {
+                            match loaders::split_dataset(name, ratio) {
+                                Ok((train, test)) => println!("Split dataset into '{}' and '{}'", train, test),
+                                Err(e) => println!("Error splitting dataset: {}", e),
+                            }
+                        } else {
+                            println!("Invalid ratio: {}", ratio_str);
+                        }
+                    } else {
+                        println!("Usage: split dataset dataset_name ratio=0.3");
                     }
                 } else {
-                    println!("Usage: augment dataset \"path\" as name lazy=True|False");
+                    println!("Usage: split dataset dataset_name ratio=0.3");
                 }
             }
-            Some("print_augmentation") => {
-                if parts.len() == 2 {
-                    let name = parts[1].trim_matches('"');
-                    augmentations::print_augmentation(name);
+            "preprocess" => {
+                if parts.len() >= 5 && parts.len() >= 6 && parts[4] == "as" {
+                    let dataset_name = parts[1].trim_matches('"');
+                    let params = parse_parameters(&parts[2..4].join(" "));
+                    let output_name = parts[5].trim_matches('"');
+                    
+                    if let Some(method_str) = params.get("method") {
+                        let method = match method_str.as_str() {
+                            "normalize" => PreprocessingMethod::Normalize,
+                            "scale" => PreprocessingMethod::MinMaxScale,
+                            "log" => PreprocessingMethod::LogTransform,
+                            "sqrt" => PreprocessingMethod::SqrtTransform,
+                            _ => {
+                                println!("Unknown preprocessing method: {}", method_str);
+                                continue;
+                            }
+                        };
+                        
+                        match preprocessors::preprocess_dataset(dataset_name, method, Some(output_name)) {
+                            Ok(name) => println!("Created preprocessed dataset '{}'", name),
+                            Err(e) => println!("Error preprocessing dataset: {}", e),
+                        }
+                    } else {
+                        println!("Usage: preprocess dataset_name method=normalize|scale|log|sqrt as new_name");
+                    }
                 } else {
-                    println!("Usage: print_augmentation \"name\"");
+                    println!("Usage: preprocess dataset_name method=normalize|scale|log|sqrt as new_name");
                 }
             }
-            Some("train") => {
-                let command = parts[1..].join(" ");
-                let params: Vec<&str> = command.split_whitespace().collect();
-
-                let mut epochs = 0;
-                let mut batch_size = 0;
-                let mut learning_rate = 0.0;
-                let mut valid = true;
-
-                for param in params {
-                    let kv: Vec<&str> = param.split('=').collect();
-                    if kv.len() != 2 {
-                        valid = false;
-                        break;
+            "augment" => {
+                if parts.len() >= 5 && parts.len() >= 6 && parts[4] == "as" {
+                    let dataset_name = parts[1].trim_matches('"');
+                    let params = parse_parameters(&parts[2..4].join(" "));
+                    let output_name = parts[5].trim_matches('"');
+                    
+                    if let Some(method_str) = params.get("method") {
+                        // Parse augmentation method with parameters
+                        let method = if method_str.starts_with("noise(") && method_str.ends_with(")") {
+                            let param_str = &method_str[6..method_str.len()-1];
+                            if let Ok(amount) = param_str.parse::<f64>() {
+                                AugmentationMethod::Noise(amount)
+                            } else {
+                                println!("Invalid noise parameter: {}", param_str);
+                                continue;
+                            }
+                        } else if method_str.starts_with("dropout(") && method_str.ends_with(")") {
+                            let param_str = &method_str[8..method_str.len()-1];
+                            if let Ok(prob) = param_str.parse::<f64>() {
+                                AugmentationMethod::Dropout(prob)
+                            } else {
+                                println!("Invalid dropout parameter: {}", param_str);
+                                continue;
+                            }
+                        } else if method_str == "rotation" {
+                            AugmentationMethod::Rotation
+                        } else if method_str == "mirror" {
+                            AugmentationMethod::Mirror
+                        } else if method_str == "shuffle" {
+                            AugmentationMethod::Shuffle
+                        } else {
+                            println!("Unknown augmentation method: {}", method_str);
+                            continue;
+                        };
+                        
+                        match augmentations::augment_dataset(dataset_name, output_name, method) {
+                            Ok(_) => println!("Created augmented dataset '{}'", output_name),
+                            Err(e) => println!("Error augmenting dataset: {}", e),
+                        }
+                    } else {
+                        println!("Usage: augment dataset_name method=noise(0.1)|dropout(0.2)|rotation|mirror|shuffle as new_name");
                     }
-                    match kv[0] {
-                        "epochs" => epochs = kv[1].parse().unwrap_or(0),
-                        "batch_size" => batch_size = kv[1].parse().unwrap_or(0),
-                        "learning_rate" => learning_rate = kv[1].parse().unwrap_or(0.0),
-                        _ => valid = false,
-                    }
+                } else {
+                    println!("Usage: augment dataset_name method=noise(0.1)|dropout(0.2)|rotation|mirror|shuffle as new_name");
                 }
-
-                if valid && epochs > 0 && batch_size > 0 && learning_rate > 0.0 {
+            }
+            "train" => {
+                let params = parse_parameters(&parts[1..].join(" "));
+                
+                let epochs = params.get("epochs").and_then(|v| v.parse::<usize>().ok()).unwrap_or(0);
+                let batch_size = params.get("batch_size").and_then(|v| v.parse::<usize>().ok()).unwrap_or(0);
+                let learning_rate = params.get("learning_rate").and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+                
+                if epochs > 0 && batch_size > 0 && learning_rate > 0.0 {
                     if let Some(dataset) = loaders::get_dataset("training_data") {
-                        let layer_sizes = vec![2, 8, 4, 1];
+                        let layer_sizes = vec![dataset.get_feature_count(), 8, 4, 1];
                         let model = NeuralNetwork::new("nn_model", layer_sizes);
                         let optimizer = SGD::new(0.9, &model.layers);
-                        let scheduler = LearningRateScheduler::new(0.01); // Reduced decay rate
-
+                        let scheduler = LearningRateScheduler::new(0.01);
+                        
                         let mut trainer = Trainer::new(model, optimizer, scheduler);
                         let mut callbacks = CallbackList::new();
                         callbacks.add(LoggingCallback::new(true));
                         trainer.add_callback(Box::new(callbacks));
-
-                        trainer.train(&dataset, dataset.get_labels(), epochs, batch_size, 0.01); // Initial LR = 0.01
+                        
+                        println!("Training model with {} epochs, batch size {}, learning rate {}", epochs, batch_size, learning_rate);
+                        trainer.train(&dataset, dataset.get_labels(), epochs, batch_size, learning_rate);
+                        println!("Training completed!");
                     } else {
-                        println!("Dataset 'training_data' not found");
+                        println!("Dataset 'training_data' not found. Load a dataset first and rename it to 'training_data'");
+                        println!("Tip: Try 'load dataset \"path\" as training_data'");
                     }
                 } else {
-                    println!("Usage: train epochs=<num> batch_size=<num> learning_rate=<num>");
+                    println!("Usage: train epochs=10 batch_size=32 learning_rate=0.01");
                 }
             }
-            _ => println!("Unknown command: {}. Type 'exit' to quit.", input),
+            _ => println!("Unknown command: '{}'. Type 'help' for available commands.", command),
         }
         io::stdout().flush().unwrap();
     }
