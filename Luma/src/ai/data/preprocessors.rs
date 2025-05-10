@@ -158,7 +158,7 @@ pub fn preprocess_dataset(
     let dataset_headers = dataset.get_headers().clone();
     
     // Store the new dataset
-    let mut new_dataset = DatasetMetadata {
+    let new_dataset = DatasetMetadata {
         name: output_name.clone(),
         path: None,
         headers: dataset_headers,

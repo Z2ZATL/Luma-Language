@@ -1,13 +1,11 @@
 use std::path::Path;
 use std::fs::File;
-use std::io::{self, BufReader, Read, Cursor};
+use std::io::{BufReader, Read};
 use std::sync::RwLock;
 use std::collections::HashMap;
 use lazy_static::lazy_static;
 
-use image::{DynamicImage, ImageFormat, io::Reader as ImageReader};
 use hound::WavReader;
-use csv::ReaderBuilder;
 use crate::ai::data::loaders;
 use crate::ai::data::preprocessors;
 
@@ -44,6 +42,8 @@ pub enum MultiModalData {
 pub struct MultiModalDataset {
     name: String,
     data_type: String,
+    /// Original file path from which this dataset was loaded (useful for reload operations)
+    #[allow(dead_code)]
     path: Option<String>,
     loaded: bool,
     data: Option<MultiModalData>,

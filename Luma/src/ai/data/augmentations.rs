@@ -395,7 +395,7 @@ pub fn get_augmentation(name: &str) -> Option<DatasetMetadata> {
                         println!("Debug: Loaded {} rows into data (get_augmentation)", data.len());
                         
                         // Apply augmentation method if specified
-                        if let Some(method_str) = &dataset.method {
+                        if let Some(_method_str) = &dataset.method {
                             // This is a simplified version - ideally we would parse the method string
                             let normalized = normalize_data_clone(&data);
                             dataset.data = Some(normalized);

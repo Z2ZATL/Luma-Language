@@ -6,7 +6,6 @@ use lazy_static::lazy_static;
 use prettytable::{Table, Row, Cell};
 use std::path::Path;
 use std::collections::HashMap;
-use crate::ai::data::preprocessors;
 
 #[derive(Debug, Clone)]
 pub struct DatasetMetadata {
@@ -391,7 +390,7 @@ pub fn split_dataset(name: &str, test_ratio: f64) -> Result<(String, String), St
     
     // Create training dataset
     let train_name = format!("{}_train", name);
-    let mut train_dataset = DatasetMetadata {
+    let train_dataset = DatasetMetadata {
         name: train_name.clone(),
         path: None,
         headers: dataset.headers.clone(),
@@ -404,7 +403,7 @@ pub fn split_dataset(name: &str, test_ratio: f64) -> Result<(String, String), St
     
     // Create testing dataset
     let test_name = format!("{}_test", name);
-    let mut test_dataset = DatasetMetadata {
+    let test_dataset = DatasetMetadata {
         name: test_name.clone(),
         path: None,
         headers: dataset.headers.clone(),
