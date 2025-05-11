@@ -206,6 +206,9 @@ pub fn augment_dataset(
     // Apply the augmentation
     let augmented_data = apply_augmentation(&source_data, method)?;
     
+    // Create a copy of source_headers for later use
+    let source_headers_clone = source_headers.clone();
+    
     // Store the new augmented dataset
     let mut datasets = AUGMENTED_DATASETS.write().map_err(|e| format!("Lock error: {}", e))?;
     datasets.insert(
@@ -225,24 +228,41 @@ pub fn augment_dataset(
     println!("Created augmented dataset '{}' from '{}' using method {:?}", 
         new_name, source_name, method);
         
-    // Also copy to regular datasets for compatibility with other commands
+    // Also register this with loaders for compatibility with other commands
     use crate::ai::data::loaders;
-    let labels = if augmented_data.is_empty() {
-        Vec::new()
-    } else {
-        // For simplicity, create empty labels (one per row)
-        augmented_data.iter().map(|_| vec![0.0]).collect()
-    };
     
-    // Create regular dataset metadata
-    let source_headers_vec = source_headers.clone().unwrap_or_default();
-    loaders::add_dataset_custom(
-        new_name, 
-        augmented_data.clone(), 
-        labels, 
-        source_headers_vec, 
-        None
-    );
+    // Check if the dataset already exists in loaders
+    // If not, add it as a new dataset
+    if loaders::get_dataset(new_name).is_none() {
+        let labels = if augmented_data.is_empty() {
+            Vec::new()
+        } else {
+            // For simplicity, create empty labels (one per row)
+            augmented_data.iter().map(|_| vec![0.0]).collect()
+        };
+        
+        // Get headers or create default ones
+        let headers = source_headers_clone.unwrap_or_else(|| {
+            // Create default headers like "feature_1", "feature_2", etc.
+            if !augmented_data.is_empty() && !augmented_data[0].is_empty() {
+                (0..augmented_data[0].len())
+                    .map(|i| format!("feature_{}", i+1))
+                    .collect()
+            } else {
+                Vec::new()
+            }
+        });
+        
+        // Use the public API to load dataset directly
+        loaders::load_dataset_from_memory(
+            new_name,
+            &augmented_data,
+            &labels,
+            &headers
+        ).unwrap_or_else(|e| {
+            println!("Warning: Failed to register augmented dataset with loaders: {}", e);
+        });
+    }
     
     Ok(())
 }

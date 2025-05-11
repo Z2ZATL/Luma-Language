@@ -443,3 +443,51 @@ pub fn clear_datasets() {
         }
     }
 }
+
+/// Load a dataset directly from memory
+/// 
+/// # Arguments
+/// * `name` - Name to assign to the dataset
+/// * `data` - The feature data as a vector of vectors
+/// * `labels` - The label data as a vector of vectors
+/// * `headers` - The column headers
+///
+/// # Returns
+/// * `Ok(())` on success
+/// * `Err(String)` with error message on failure
+pub fn load_dataset_from_memory(
+    name: &str,
+    data: &[Vec<f64>],
+    labels: &[Vec<f64>],
+    headers: &[String]
+) -> Result<(), String> {
+    if data.is_empty() {
+        return Err("Cannot add empty dataset".to_string());
+    }
+    
+    if data.len() != labels.len() {
+        return Err(format!("Data and labels length mismatch: {} vs {}", data.len(), labels.len()));
+    }
+
+    let mut datasets = match DATASETS.write() {
+        Ok(guard) => guard,
+        Err(e) => return Err(format!("Failed to acquire write lock: {}", e)),
+    };
+    
+    let headers_option = if headers.is_empty() { None } else { Some(headers.to_vec()) };
+    
+    // Store the dataset (will overwrite if exists)
+    datasets.insert(name.to_string(), DatasetMetadata {
+        name: name.to_string(),
+        path: None,
+        headers: headers_option,
+        data: data.to_vec(),
+        labels: labels.to_vec(),
+        lazy: false,
+        loaded: true,
+        label_column: None,
+    });
+    
+    println!("Created dataset '{}' in memory with {} rows", name, data.len());
+    Ok(())
+}
