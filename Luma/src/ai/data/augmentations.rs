@@ -214,7 +214,7 @@ pub fn augment_dataset(
             name: new_name.to_string(),
             path: None,
             headers: source_headers,
-            data: Some(augmented_data),
+            data: Some(augmented_data.clone()),  // Clone for use in regular datasets
             source_dataset: Some(source_name.to_string()),
             method: Some(format!("{:?}", method)),
             lazy: false,
@@ -224,6 +224,25 @@ pub fn augment_dataset(
     
     println!("Created augmented dataset '{}' from '{}' using method {:?}", 
         new_name, source_name, method);
+        
+    // Also copy to regular datasets for compatibility with other commands
+    use crate::ai::data::loaders;
+    let labels = if augmented_data.is_empty() {
+        Vec::new()
+    } else {
+        // For simplicity, create empty labels (one per row)
+        augmented_data.iter().map(|_| vec![0.0]).collect()
+    };
+    
+    // Create regular dataset metadata
+    let source_headers_vec = source_headers.clone().unwrap_or_default();
+    loaders::add_dataset_custom(
+        new_name, 
+        augmented_data.clone(), 
+        labels, 
+        source_headers_vec, 
+        None
+    );
     
     Ok(())
 }
