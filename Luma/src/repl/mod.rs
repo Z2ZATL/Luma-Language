@@ -7,6 +7,8 @@ use crate::ai::models::advanced::NeuralNetwork;
 use crate::ai::models::optimizers::SGD;
 use crate::ai::training::schedulers::LearningRateScheduler;
 use crate::ai::training::callbacks::{LoggingCallback, CallbackList};
+use crate::ai::evaluation::evaluators;
+use crate::ai::deployment::{deployers, exporters};
 
 // ฟังก์ชันช่วยในการแบ่ง parameters จากคำสั่ง
 fn parse_parameters(input: &str) -> std::collections::HashMap<String, String> {
@@ -38,6 +40,10 @@ fn show_help() {
     println!("  list datasets");
     println!("  clear datasets");
     println!("  train epochs=10 batch_size=32 learning_rate=0.01");
+    println!("  evaluate model dataset_name"); 
+    println!("  save model \"path/to/file.luma\"");
+    println!("  load_model \"path/to/file.luma\"");
+    println!("  export model format=\"onnx|tensorflow|wasm|json\" path=\"output_path\"");
     println!("  exit");
     println!("  help");
 }
@@ -365,6 +371,112 @@ pub fn start_repl() {
                 } else {
                     println!("Usage: train epochs=10 batch_size=32 learning_rate=0.01");
                     println!("All parameters must be positive values.");
+                }
+            },
+            "evaluate" => {
+                // Check if we have enough parts like "evaluate model dataset_name"
+                if parts.len() >= 3 && parts[1] == "model" {
+                    let dataset_name = parts[2].trim_matches('"');
+                    
+                    // Get the dataset for evaluation
+                    if let Some(dataset) = loaders::get_dataset(dataset_name) {
+                        println!("Found evaluation dataset '{}'", dataset_name);
+                        
+                        // Get the current model
+                        // In a real implementation, we would have a way to access the trained model
+                        // For now, we'll use a placeholder test model
+                        let input_dim = if !dataset.get_data().is_empty() {
+                            dataset.get_data()[0].len()
+                        } else {
+                            println!("Error: Evaluation data is empty");
+                            continue;
+                        };
+                        
+                        let output_dim = 1; // Binary classification
+                        let mut model = NeuralNetwork::new(
+                            "test_model",
+                            vec![input_dim, 5, output_dim],
+                        );
+                        
+                        // Evaluate the model on the dataset
+                        let results = evaluators::evaluate_trained_model(&mut model, &dataset);
+                        
+                        // Display the evaluation results
+                        evaluators::print_evaluation_results(&results);
+                    } else {
+                        println!("Dataset '{}' not found. Load a dataset first.", dataset_name);
+                    }
+                } else {
+                    println!("Usage: evaluate model dataset_name");
+                }
+            },
+            "save" => {
+                // Check if we have enough parts like "save model path/to/file.luma"
+                if parts.len() >= 3 && parts[1] == "model" {
+                    let file_path = parts[2].trim_matches('"');
+                    
+                    // In a real implementation, we would have a way to access the trained model
+                    // For now, we'll use a placeholder test model
+                    let model = NeuralNetwork::new(
+                        "test_model",
+                        vec![10, 5, 1],
+                    );
+                    
+                    // Save the model to the specified file
+                    match deployers::save_model(&model, file_path, None) {
+                        Ok(()) => println!("Model saved successfully to {}", file_path),
+                        Err(e) => println!("Error saving model: {}", e),
+                    }
+                } else {
+                    println!("Usage: save model \"path/to/file.luma\"");
+                }
+            },
+            "load_model" => {
+                // Check if we have enough parts like "load_model path/to/file.luma"
+                if parts.len() >= 2 {
+                    let file_path = parts[1].trim_matches('"');
+                    
+                    // Load the model from the specified file
+                    match deployers::load_model(file_path) {
+                        Ok(model) => {
+                            println!("Model loaded successfully from {}", file_path);
+                            println!("Model ID: {}", model.id);
+                            println!("Number of layers: {}", model.layers.len());
+                            
+                            // In a real implementation, we would store this model for later use
+                        },
+                        Err(e) => println!("Error loading model: {}", e),
+                    }
+                } else {
+                    println!("Usage: load_model \"path/to/file.luma\"");
+                }
+            },
+            "export" => {
+                // Check if we have the right format like "export model format="onnx" path="output_path"
+                if parts.len() >= 2 && parts[1] == "model" {
+                    let params = parse_parameters(&parts.join(" "));
+                    
+                    if let (Some(format), Some(path)) = (params.get("format"), params.get("path")) {
+                        let format = format.trim_matches('"');
+                        let path = path.trim_matches('"');
+                        
+                        // In a real implementation, we would have a way to access the trained model
+                        // For now, we'll use a placeholder test model
+                        let model = NeuralNetwork::new(
+                            "test_model",
+                            vec![10, 5, 1],
+                        );
+                        
+                        // Export the model to the specified format and path
+                        match exporters::export_model(&model, format, path) {
+                            Ok(output_path) => println!("Model exported successfully to {} format at {}", format, output_path),
+                            Err(e) => println!("Error exporting model: {}", e),
+                        }
+                    } else {
+                        println!("Usage: export model format=\"onnx|tensorflow|wasm|json\" path=\"output_path\"");
+                    }
+                } else {
+                    println!("Usage: export model format=\"onnx|tensorflow|wasm|json\" path=\"output_path\"");
                 }
             },
             _ => println!("Unknown command: '{}'. Type 'help' for available commands.", command),

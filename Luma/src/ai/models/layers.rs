@@ -2,7 +2,7 @@ use rand::Rng;
 use crate::ai::engine::autodiff::ComputationGraph;
 use crate::ai::engine::tensor::Tensor;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Layer {
     pub id: String,
     pub neurons: usize,

@@ -3,7 +3,7 @@ use crate::ai::engine::autodiff::ComputationGraph;
 use crate::ai::engine::tensor::Tensor;
 use crate::debug_print;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NeuralNetwork {
     pub id: String,
     pub layers: Vec<Layer>,
