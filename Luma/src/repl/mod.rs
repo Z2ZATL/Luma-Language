@@ -34,6 +34,7 @@ fn show_help() {
     println!("  split dataset dataset_name ratio=0.3");
     println!("  preprocess dataset_name method=normalize|scale|log|sqrt as new_name");
     println!("  augment dataset_name method=noise(0.1)|dropout(0.2)|rotation|mirror|shuffle as new_name");
+    println!("  rename dataset source_name as target_name");
     println!("  list datasets");
     println!("  clear datasets");
     println!("  train epochs=10 batch_size=32 learning_rate=0.01");
@@ -139,6 +140,33 @@ pub fn start_repl() {
                     loaders::list_datasets();
                 } else {
                     println!("Usage: list datasets");
+                }
+            },
+            "rename" => {
+                if parts.len() >= 5 && parts[1] == "dataset" && parts[3] == "as" {
+                    let source_name = parts[2].trim_matches('"');
+                    let target_name = parts[4].trim_matches('"');
+                    
+                    // Check if source dataset exists
+                    if let Some(source_dataset) = loaders::get_dataset(source_name) {
+                        // Make a copy of all dataset properties
+                        let source_data = source_dataset.get_data().clone();
+                        let source_labels = source_dataset.get_labels().clone();
+                        let headers = source_dataset.get_headers().clone().unwrap_or_else(Vec::new);
+                        
+                        // Create a new dataset with the target name
+                        match loaders::load_dataset_from_memory(target_name, &source_data, &source_labels, &headers) {
+                            Ok(_) => {
+                                println!("Renamed dataset '{}' to '{}'", source_name, target_name);
+                                // Keep the original dataset (don't delete)
+                            },
+                            Err(e) => println!("Error renaming dataset: {}", e),
+                        }
+                    } else {
+                        println!("Source dataset '{}' not found", source_name);
+                    }
+                } else {
+                    println!("Usage: rename dataset source_name as target_name");
                 }
             },
             "clear" => {
@@ -275,6 +303,11 @@ pub fn start_repl() {
                 }
             },
             "train" => {
+                println!("Debug: Received {} parts in command", parts.len());
+                for (i, p) in parts.iter().enumerate() {
+                    println!("Debug: Part {}: '{}'", i, p);
+                }
+                
                 let params = parse_parameters(&parts[1..].join(" "));
                 
                 let epochs = params.get("epochs").and_then(|v| v.parse::<usize>().ok()).unwrap_or(0);
@@ -283,26 +316,55 @@ pub fn start_repl() {
                 
                 if epochs > 0 && batch_size > 0 && learning_rate > 0.0 {
                     if let Some(dataset) = loaders::get_dataset("training_data") {
-                        let layer_sizes = vec![dataset.get_feature_count(), 8, 4, 1];
+                        // Determine input and output dimensions based on dataset
+                        let input_dim = dataset.get_feature_count();
+                        let output_dim = 1; // Default to 1 for binary classification
+                        
+                        // Create a network with appropriate layer sizes for this dataset
+                        // with hidden layers that taper down in size
+                        let layer_sizes = vec![input_dim, 
+                                              (input_dim * 2).max(8), // First hidden layer
+                                              (input_dim).max(4),     // Second hidden layer 
+                                              output_dim];
+                              
+                        println!("Creating neural network with layer sizes: {:?}", layer_sizes);
                         let model = NeuralNetwork::new("nn_model", layer_sizes);
                         let optimizer = SGD::new(0.9, &model.layers);
-                        let scheduler = LearningRateScheduler::new(0.01);
+                        let scheduler = LearningRateScheduler::new(0.1); // Slightly higher start rate
                         
                         let mut trainer = Trainer::new(model, optimizer, scheduler);
                         let mut callbacks = CallbackList::new();
                         callbacks.add(LoggingCallback::new(true));
                         trainer.add_callback(Box::new(callbacks));
                         
-                        println!("Training model with {} epochs, batch size {}, learning rate {}", 
-                                 epochs, batch_size, learning_rate);
-                        trainer.train(&dataset, dataset.get_labels(), epochs, batch_size, learning_rate);
-                        println!("Training completed!");
+                        // Get training labels - each row should have at least one label
+                        let labels = dataset.get_labels();
+                        
+                        if !labels.is_empty() {
+                            println!("Training model with:");
+                            println!("  - {} epochs", epochs);
+                            println!("  - batch size {}", batch_size);
+                            println!("  - learning rate {}", learning_rate);
+                            println!("  - {} training examples", dataset.get_data().len());
+                            println!("  - {} features per example", input_dim);
+                            
+                            // Set debug level for training - 1 is a good balance
+                            trainer.set_debug_level(1);
+                            
+                            // Start training with the given parameters
+                            trainer.train(&dataset, &labels, epochs, batch_size, learning_rate);
+                            println!("Training completed!");
+                        } else {
+                            println!("Error: No labels found in dataset. Make sure your dataset has label columns.");
+                        }
                     } else {
                         println!("Dataset 'training_data' not found. Load a dataset first and rename it to 'training_data'");
                         println!("Tip: Try 'load dataset \"path\" as training_data'");
+                        println!("Or rename an existing dataset: rename dataset existing_name as training_data");
                     }
                 } else {
                     println!("Usage: train epochs=10 batch_size=32 learning_rate=0.01");
+                    println!("All parameters must be positive values.");
                 }
             },
             _ => println!("Unknown command: '{}'. Type 'help' for available commands.", command),
