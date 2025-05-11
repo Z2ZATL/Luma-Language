@@ -91,6 +91,12 @@ pub fn start_repl() {
             continue;
         }
 
+        // Debug: แสดงคำสั่งที่รับมา
+        println!("Debug: Received {} parts in command", parts.len());
+        for (i, p) in parts.iter().enumerate() {
+            println!("Debug: Part {}: '{}'", i, p);
+        }
+
         let command = parts[0].as_str();
         match command {
             "load" => {
@@ -119,7 +125,7 @@ pub fn start_repl() {
                     println!("  load dataset \"path\" as name [lazy=true|false]");
                     println!("  load multimodal \"path\" as name");
                 }
-            }
+            },
             "print" => {
                 if parts.len() >= 3 && parts[1] == "dataset" {
                     let name = parts[2].trim_matches('"');
@@ -127,14 +133,14 @@ pub fn start_repl() {
                 } else {
                     println!("Usage: print dataset dataset_name");
                 }
-            }
+            },
             "list" => {
                 if parts.len() >= 2 && parts[1] == "datasets" {
                     loaders::list_datasets();
                 } else {
                     println!("Usage: list datasets");
                 }
-            }
+            },
             "clear" => {
                 if parts.len() >= 2 && parts[1] == "datasets" {
                     loaders::clear_datasets();
@@ -142,7 +148,7 @@ pub fn start_repl() {
                 } else {
                     println!("Usage: clear datasets");
                 }
-            }
+            },
             "split" => {
                 if parts.len() >= 4 && parts[1] == "dataset" {
                     let name = parts[2].trim_matches('"');
@@ -163,25 +169,39 @@ pub fn start_repl() {
                 } else {
                     println!("Usage: split dataset dataset_name ratio=0.3");
                 }
-            }
+            },
             "preprocess" => {
-                if parts.len() >= 5 && parts.len() >= 6 && parts[4] == "as" {
+                // 1. ตรวจสอบรูปแบบคำสั่ง "preprocess dataset_name method=normalize as new_name"
+                println!("Debug: Preprocessing with {} parts", parts.len());
+                if parts.len() == 5 && parts[3] == "as" {
+                    // 2. ดึงข้อมูลจากคำสั่ง
                     let dataset_name = parts[1].trim_matches('"');
-                    let params = parse_parameters(&parts[2..4].join(" "));
-                    let output_name = parts[5].trim_matches('"');
+                    let method_part = &parts[2];
+                    let output_name = parts[4].trim_matches('"');
                     
-                    if let Some(method_str) = params.get("method") {
-                        let method = match method_str.as_str() {
+                    println!("Debug: Preprocessing dataset='{}', method='{}', output='{}'", 
+                             dataset_name, method_part, output_name);
+                    
+                    // 3. ตรวจสอบว่า method มีรูปแบบถูกต้อง
+                    if method_part.starts_with("method=") {
+                        // 4. ดึงรายละเอียดวิธีการ
+                        let method_name = &method_part["method=".len()..];
+                        println!("Debug: Using method '{}'", method_name);
+                        
+                        // 5. แปลงเป็น enum PreprocessingMethod ตามที่ระบุ
+                        let method = match method_name {
                             "normalize" => PreprocessingMethod::Normalize,
                             "scale" => PreprocessingMethod::MinMaxScale,
                             "log" => PreprocessingMethod::LogTransform,
                             "sqrt" => PreprocessingMethod::SqrtTransform,
                             _ => {
-                                println!("Unknown preprocessing method: {}", method_str);
+                                println!("Unknown preprocessing method: {}", method_name);
                                 continue;
                             }
                         };
                         
+                        // 6. เรียกฟังก์ชัน preprocess_dataset
+                        println!("Debug: Calling preprocess_dataset with {} and output {}", dataset_name, output_name);
                         match preprocessors::preprocess_dataset(dataset_name, method, Some(output_name)) {
                             Ok(name) => println!("Created preprocessed dataset '{}'", name),
                             Err(e) => println!("Error preprocessing dataset: {}", e),
@@ -192,17 +212,29 @@ pub fn start_repl() {
                 } else {
                     println!("Usage: preprocess dataset_name method=normalize|scale|log|sqrt as new_name");
                 }
-            }
+            },
             "augment" => {
-                if parts.len() >= 5 && parts.len() >= 6 && parts[4] == "as" {
+                // 1. ตรวจสอบรูปแบบคำสั่ง "augment dataset_name method=... as new_name"
+                println!("Debug: Augmenting with {} parts", parts.len());
+                if parts.len() == 5 && parts[3] == "as" {
+                    // 2. ดึงข้อมูลจากคำสั่ง
                     let dataset_name = parts[1].trim_matches('"');
-                    let params = parse_parameters(&parts[2..4].join(" "));
-                    let output_name = parts[5].trim_matches('"');
+                    let method_part = &parts[2];
+                    let output_name = parts[4].trim_matches('"');
                     
-                    if let Some(method_str) = params.get("method") {
-                        // Parse augmentation method with parameters
+                    println!("Debug: Augmenting dataset='{}', method='{}', output='{}'", 
+                             dataset_name, method_part, output_name);
+                    
+                    // 3. ตรวจสอบว่า method มีรูปแบบถูกต้อง
+                    if method_part.starts_with("method=") {
+                        // 4. ดึงรายละเอียดวิธีการ
+                        let method_str = &method_part["method=".len()..];
+                        println!("Debug: Using method '{}'", method_str);
+                        
+                        // 5. แปลงเป็น enum AugmentationMethod ตามที่ระบุ
                         let method = if method_str.starts_with("noise(") && method_str.ends_with(")") {
                             let param_str = &method_str[6..method_str.len()-1];
+                            println!("Debug: Noise parameter: {}", param_str);
                             if let Ok(amount) = param_str.parse::<f64>() {
                                 AugmentationMethod::Noise(amount)
                             } else {
@@ -211,6 +243,7 @@ pub fn start_repl() {
                             }
                         } else if method_str.starts_with("dropout(") && method_str.ends_with(")") {
                             let param_str = &method_str[8..method_str.len()-1];
+                            println!("Debug: Dropout parameter: {}", param_str);
                             if let Ok(prob) = param_str.parse::<f64>() {
                                 AugmentationMethod::Dropout(prob)
                             } else {
@@ -228,6 +261,8 @@ pub fn start_repl() {
                             continue;
                         };
                         
+                        // 6. เรียกฟังก์ชัน augment_dataset
+                        println!("Debug: Calling augment_dataset with {} and output {}", dataset_name, output_name);
                         match augmentations::augment_dataset(dataset_name, output_name, method) {
                             Ok(_) => println!("Created augmented dataset '{}'", output_name),
                             Err(e) => println!("Error augmenting dataset: {}", e),
@@ -238,7 +273,7 @@ pub fn start_repl() {
                 } else {
                     println!("Usage: augment dataset_name method=noise(0.1)|dropout(0.2)|rotation|mirror|shuffle as new_name");
                 }
-            }
+            },
             "train" => {
                 let params = parse_parameters(&parts[1..].join(" "));
                 
@@ -258,7 +293,8 @@ pub fn start_repl() {
                         callbacks.add(LoggingCallback::new(true));
                         trainer.add_callback(Box::new(callbacks));
                         
-                        println!("Training model with {} epochs, batch size {}, learning rate {}", epochs, batch_size, learning_rate);
+                        println!("Training model with {} epochs, batch size {}, learning rate {}", 
+                                 epochs, batch_size, learning_rate);
                         trainer.train(&dataset, dataset.get_labels(), epochs, batch_size, learning_rate);
                         println!("Training completed!");
                     } else {
@@ -268,7 +304,7 @@ pub fn start_repl() {
                 } else {
                     println!("Usage: train epochs=10 batch_size=32 learning_rate=0.01");
                 }
-            }
+            },
             _ => println!("Unknown command: '{}'. Type 'help' for available commands.", command),
         }
         io::stdout().flush().unwrap();
