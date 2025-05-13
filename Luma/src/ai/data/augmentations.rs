@@ -188,7 +188,6 @@ pub fn augment_dataset(
         (data.clone(), source.headers.clone())
     } else {
         // Try to get from regular datasets
-        use crate::ai::data::loaders;
         let source = loaders::get_dataset(source_name)
             .ok_or_else(|| format!("Source dataset '{}' not found", source_name))?;
             

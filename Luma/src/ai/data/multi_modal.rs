@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use lazy_static::lazy_static;
 
 use hound::WavReader;
+use image::GenericImageView;  // Add this import for width() and height() methods
 use crate::ai::data::loaders;
 use crate::ai::data::preprocessors;
 
