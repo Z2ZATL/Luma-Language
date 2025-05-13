@@ -22,13 +22,13 @@ prettytable = "0.10"       # ASCII tables for data display
 chrono = "0.4"             # Date and time handling
 
 # Multi-modal data support
-image = "0.24"             # Image processing
+image = "0.23"             # Image processing (version compatible with rustc 1.77)
 hound = "3.5"              # Audio processing (WAV files)
 ndarray = "0.15"           # N-dimensional arrays
 
 # CLI and REPL
-rustyline = "12.0"         # Interactive command line
-clap = { version = "4.3", features = ["derive"] }  # Command line arguments
+rustyline = "9.1.0"        # Interactive command line (version compatible with rustc 1.77)
+clap = { version = "4.1", features = ["derive"] }  # Command line arguments
 
 # Optional features
 reqwest = { version = "0.11", features = ["json"], optional = true }  # HTTP client
