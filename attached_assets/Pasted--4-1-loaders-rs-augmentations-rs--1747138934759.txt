@@ -1,0 +1,28 @@
+#### **4.1 กู้คืนการโหลดและประมวลผลข้อมูล**
+- **เป้าหมาย**: ทำให้ `loaders.rs`, `augmentations.rs`, `multi_modal.rs` โหลดข้อมูลจริงและรองรับ lazy loading
+- **สิ่งที่ต้องทำ**:
+  - เพิ่มการโหลดไฟล์ CSV ใน `loaders.rs` โดยใช้ crate เช่น `csv`
+  - คืนค่าพารามิเตอร์ `path` และ `lazy` ใน `augmentations.rs` และเพิ่ม logic สำหรับ lazy loading
+  - ทำให้ `multi_modal.rs` รองรับการโหลดข้อมูลจากหลายแหล่ง (เช่น text, images)
+  - เพิ่มการ normalize และ scale ข้อมูลใน `augmentations.rs` ให้สอดคล้องกับ `preprocessors.rs`
+- **ผลกระทบ**: ผู้ใช้สามารถโหลดข้อมูลจริง เช่น `load dataset "iris.csv" as iris lazy=True`
+
+#### **4.2 กู้คืนและพัฒนาการสร้างและฝึกโมเดล**
+- **เป้าหมาย**: ทำให้ `advanced.rs`, `layers.rs`, `trainers.rs`, `optimizers.rs` รองรับการสร้างและฝึกโมเดลจริง
+- **สิ่งที่ต้องทำ**:
+  - คืนฟิลด์ `id`, `layers` ใน `advanced.rs` และ `id`, `neurons` ใน `layers.rs` พร้อมเพิ่ม logic สำหรับสร้าง neural network
+  - ทำให้ `trainers.rs` ฝึกโมเดลด้วย `data` และ `labels` โดยใช้ข้อมูลจาก `loaders.rs`
+  - ทำให้ `optimizers.rs` รองรับ optimizer จริง เช่น SGD, Adam
+  - เพิ่มการคำนวณใน `tensor.rs` เช่น การบวก/คูณ tensor, การคำนวณ gradient โดยใช้ `autodiff.rs` และ `operations.rs`
+  - เพิ่มการใช้งาน `callbacks.rs` และ `schedulers.rs` เพื่อจัดการ training callbacks และ learning rate scheduling
+- **ผลกระทบ**: ผู้ใช้สามารถรันคำสั่งเช่น `train epochs=10 batch_size=32 learning_rate=0.01`
+
+#### **4.3 การประเมินและดีพลอย**
+- **เป้าหมาย**: ทำให้ `evaluator.rs`, `evaluation/evaluators.rs`, `metrics.rs`, `comparison.rs`, `deployers.rs`, และ `exporters.rs` รองรับการประเมินและดีพลอย
+- **สิ่งที่ต้องทำ**:
+  - เพิ่มการคำนวณเมตริกใน `evaluation/metrics.rs` และเรียกใช้ใน `evaluators.rs` เช่น accuracy, loss
+  - เพิ่มการเปรียบเทียบโมเดลใน `comparison.rs`
+  - ทำให้ `deployers.rs` บันทึกโมเดลเป็นไฟล์จริง (เช่น serialized model)
+  - ทำให้ `exporters.rs` รองรับการ export โมเดลไปยัง ONNX, TensorFlow, WebAssembly
+- **ผลกระทบ**: ผู้ใช้สามารถประเมินโมเดลด้วย `evaluate accuracy` และ export ด้วย `export onnx "model.onnx"`
+

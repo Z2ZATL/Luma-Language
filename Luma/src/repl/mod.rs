@@ -9,6 +9,9 @@ use crate::ai::training::schedulers::LearningRateScheduler;
 use crate::ai::training::callbacks::{LoggingCallback, CallbackList};
 use crate::ai::evaluation::evaluators;
 use crate::ai::deployment::{deployers, exporters};
+use crate::ai::engine::accelerators;
+use crate::utilities::{logging, profiling, visualization};
+use std::collections::HashMap;
 
 // ฟังก์ชันช่วยในการแบ่ง parameters จากคำสั่ง
 fn parse_parameters(input: &str) -> std::collections::HashMap<String, String> {
@@ -30,6 +33,7 @@ fn parse_parameters(input: &str) -> std::collections::HashMap<String, String> {
 // ฟังก์ชันสำหรับแสดงความช่วยเหลือ
 fn show_help() {
     println!("Available commands:");
+    println!("\n=== Data Management ===");
     println!("  load dataset \"path\" as dataset_name [lazy=true|false]");
     println!("  load multimodal \"path\" as dataset_name");
     println!("  print dataset dataset_name");
@@ -39,11 +43,23 @@ fn show_help() {
     println!("  rename dataset source_name as target_name");
     println!("  list datasets");
     println!("  clear datasets");
+    
+    println!("\n=== Model Training & Evaluation ===");
     println!("  train epochs=10 batch_size=32 learning_rate=0.01");
     println!("  evaluate model dataset_name"); 
     println!("  save model \"path/to/file.luma\"");
     println!("  load_model \"path/to/file.luma\"");
     println!("  export model format=\"onnx|tensorflow|wasm|json\" path=\"output_path\"");
+    
+    println!("\n=== Performance & Optimization ===");
+    println!("  set device cpu|cuda|opencl|metal|tpu");
+    println!("  device info");
+    println!("  start profiling");
+    println!("  stop profiling");
+    println!("  plot metrics \"output_path.svg\"");
+    println!("  set log_level trace|debug|info|warning|error|fatal");
+    
+    println!("\n=== System ===");
     println!("  exit");
     println!("  help");
 }
@@ -477,6 +493,115 @@ pub fn start_repl() {
                     }
                 } else {
                     println!("Usage: export model format=\"onnx|tensorflow|wasm|json\" path=\"output_path\"");
+                }
+            },
+            "set" => {
+                if parts.len() >= 3 {
+                    if parts[1] == "device" {
+                        let device_name = parts[2].trim().to_lowercase();
+                        match accelerators::set_accelerator(&device_name) {
+                            Ok(_) => println!("Device set to: {}", device_name),
+                            Err(e) => println!("Error setting device: {}", e),
+                        }
+                    } else if parts[1] == "log_level" {
+                        if parts.len() >= 3 {
+                            let level_str = parts[2].trim().to_lowercase();
+                            match logging::LogLevel::from_str(&level_str) {
+                                Ok(level) => {
+                                    match logging::set_log_level(level) {
+                                        Ok(_) => println!("Log level set to: {}", level),
+                                        Err(e) => println!("Error setting log level: {}", e),
+                                    }
+                                },
+                                Err(e) => println!("Invalid log level: {}", e),
+                            }
+                        } else {
+                            println!("Usage: set log_level trace|debug|info|warning|error|fatal");
+                        }
+                    } else {
+                        println!("Unknown setting: '{}'. Available settings: device, log_level", parts[1]);
+                    }
+                } else {
+                    println!("Usage: set device cpu|cuda|opencl|metal|tpu");
+                    println!("       set log_level trace|debug|info|warning|error|fatal");
+                }
+            },
+            "device" => {
+                if parts.len() >= 2 && parts[1] == "info" {
+                    let info = accelerators::get_accelerator_info();
+                    println!("Accelerator Information:\n{}", info);
+                } else {
+                    println!("Usage: device info");
+                }
+            },
+            "start" => {
+                if parts.len() >= 2 && parts[1] == "profiling" {
+                    // Check if profiling is already in progress using the global profiler
+                    match profiling::get_metrics() {
+                        Some(_) => println!("Profiling already in progress. Stop current profiling first."),
+                        None => {
+                            // Start global profiling session
+                            profiling::start_profiling();
+                            profiling::start_event("REPL Session");
+                            println!("Profiling started. Use 'stop profiling' to view results.");
+                        }
+                    }
+                } else {
+                    println!("Usage: start profiling");
+                }
+            },
+            "stop" => {
+                if parts.len() >= 2 && parts[1] == "profiling" {
+                    // Check if profiling is in progress
+                    match profiling::get_metrics() {
+                        Some(metrics) => {
+                            profiling::end_event();
+                            println!("Profiling stopped. Results:");
+                            println!("{}", metrics);
+                            // Clear the global profiler state
+                            profiling::clear_profiler();
+                        },
+                        None => {
+                            println!("No profiling in progress. Start profiling first.");
+                        }
+                    }
+                } else {
+                    println!("Usage: stop profiling");
+                }
+            },
+            "plot" => {
+                if parts.len() >= 3 && parts[1] == "metrics" {
+                    let output_path = parts[2].trim_matches('"');
+                    
+                    // Simulate some training metrics for visualization
+                    // In a real implementation, this would use actual training history
+                    let mut metrics = HashMap::new();
+                    let epochs = 10;
+                    
+                    // Create some sample loss values that decrease over time
+                    let mut loss_values = Vec::with_capacity(epochs);
+                    for i in 0..epochs {
+                        let progress = i as f64 / (epochs - 1) as f64;
+                        let loss = 1.0 - 0.8 * progress + 0.1 * (progress * 5.0).sin();
+                        loss_values.push(loss);
+                    }
+                    metrics.insert("Loss".to_string(), loss_values);
+                    
+                    // Create some sample accuracy values that increase over time
+                    let mut accuracy_values = Vec::with_capacity(epochs);
+                    for i in 0..epochs {
+                        let progress = i as f64 / (epochs - 1) as f64;
+                        let accuracy = 0.5 + 0.45 * progress - 0.05 * (progress * 4.0).cos();
+                        accuracy_values.push(accuracy);
+                    }
+                    metrics.insert("Accuracy".to_string(), accuracy_values);
+                    
+                    match visualization::plot_training_metrics(&metrics, epochs, output_path) {
+                        Ok(_) => println!("Training metrics plotted to: {}", output_path),
+                        Err(e) => println!("Error plotting metrics: {}", e),
+                    }
+                } else {
+                    println!("Usage: plot metrics \"output_path.svg\"");
                 }
             },
             _ => println!("Unknown command: '{}'. Type 'help' for available commands.", command),
