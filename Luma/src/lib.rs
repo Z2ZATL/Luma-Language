@@ -35,7 +35,8 @@ pub use utilities::debugging as util_debugging;
 pub use utilities::logging as util_logging;
 pub use utilities::visualization as util_visualization;
 
-pub use plugins::community as plg_community;
+// Community plugins support has been temporarily removed
+// pub use plugins::community as plg_community;
 pub use plugins::registry as plg_registry;
 
 #[cfg(test)]

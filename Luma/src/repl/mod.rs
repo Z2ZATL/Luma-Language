@@ -11,6 +11,7 @@ use crate::ai::evaluation::evaluators;
 use crate::ai::deployment::{deployers, exporters};
 use crate::ai::engine::accelerators;
 use crate::utilities::{logging, profiling, visualization};
+use crate::plugins;
 use std::collections::HashMap;
 
 // ฟังก์ชันช่วยในการแบ่ง parameters จากคำสั่ง
@@ -58,6 +59,17 @@ fn show_help() {
     println!("  stop profiling");
     println!("  plot metrics \"output_path.svg\"");
     println!("  set log_level trace|debug|info|warning|error|fatal");
+    
+    println!("\n=== Plugins ===");
+    println!("  plugin list");
+    println!("  plugin info <plugin_id>");
+    println!("  plugin enable <plugin_id>");
+    println!("  plugin disable <plugin_id>");
+    println!("  execute plugin <plugin_id> <command> [args...]");
+    println!("  nlp tokenize \"Your text here\"");
+    println!("  nlp analyze_sentiment \"Your text here\"");
+    println!("  img resize \"input.jpg\" 800 600 \"output.jpg\"");
+    println!("  mm load \"image.jpg\" [dataset_name]");
     
     println!("\n=== System ===");
     println!("  exit");
@@ -602,6 +614,168 @@ pub fn start_repl() {
                     }
                 } else {
                     println!("Usage: plot metrics \"output_path.svg\"");
+                }
+            },
+            "plugin" => {
+                // Plugin management commands
+                if parts.len() < 2 {
+                    println!("Usage: plugin <list|info|enable|disable> [plugin_id]");
+                    continue;
+                }
+                
+                let subcommand = parts[1].as_str();
+                match subcommand {
+                    "list" => {
+                        // List all plugins
+                        plugins::registry::print_plugins_info();
+                    },
+                    "info" => {
+                        if parts.len() < 3 {
+                            println!("Usage: plugin info <plugin_id>");
+                            continue;
+                        }
+                        
+                        let plugin_id = &parts[2];
+                        match plugins::registry::get_plugin_metadata(plugin_id) {
+                            Some(plugin) => {
+                                println!("Plugin Information:");
+                                println!("  ID: {}", plugin.id);
+                                println!("  Name: {}", plugin.name);
+                                println!("  Version: {}", plugin.version);
+                                if let Some(desc) = &plugin.description {
+                                    println!("  Description: {}", desc);
+                                }
+                                if let Some(author) = &plugin.author {
+                                    println!("  Author: {}", author);
+                                }
+                                println!("  Status: {}", if plugin.enabled { "Enabled" } else { "Disabled" });
+                                println!("  Commands: {}", plugin.commands.join(", "));
+                            },
+                            None => println!("Plugin '{}' not found", plugin_id),
+                        }
+                    },
+                    "enable" => {
+                        if parts.len() < 3 {
+                            println!("Usage: plugin enable <plugin_id>");
+                            continue;
+                        }
+                        
+                        let plugin_id = &parts[2];
+                        match plugins::set_plugin_enabled(plugin_id, true) {
+                            Ok(_) => println!("Plugin '{}' enabled", plugin_id),
+                            Err(e) => println!("Error: {}", e),
+                        }
+                    },
+                    "disable" => {
+                        if parts.len() < 3 {
+                            println!("Usage: plugin disable <plugin_id>");
+                            continue;
+                        }
+                        
+                        let plugin_id = &parts[2];
+                        match plugins::set_plugin_enabled(plugin_id, false) {
+                            Ok(_) => println!("Plugin '{}' disabled", plugin_id),
+                            Err(e) => println!("Error: {}", e),
+                        }
+                    },
+                    cmd => println!("Unknown plugin command: '{}'. Valid commands: list, info, enable, disable", cmd),
+                }
+            },
+            "execute" => {
+                // Execute plugin command
+                if parts.len() < 4 {
+                    println!("Usage: execute plugin <plugin_id> <command> [args...]");
+                    continue;
+                }
+                
+                if parts[1] != "plugin" {
+                    println!("Usage: execute plugin <plugin_id> <command> [args...]");
+                    continue;
+                }
+                
+                let plugin_id = parts[2].as_str();  // Use as_str() to get a &str
+                let command = parts[3].as_str();
+                
+                // Create a vector of string slices
+                let mut all_args_str: Vec<&str> = Vec::with_capacity(1 + parts.len() - 4);
+                all_args_str.push(command);
+                
+                // Add remaining arguments as &str
+                for arg in &parts[4..] {
+                    all_args_str.push(arg.as_str());
+                }
+                
+                match plugins::execute_plugin(plugin_id, &all_args_str) {
+                    Ok(result) => println!("{}", result),
+                    Err(e) => println!("Error executing plugin '{}': {}", plugin_id, e),
+                }
+            },
+            "nlp" => {
+                // NLP plugin shortcut
+                if parts.len() < 2 {
+                    println!("Usage: nlp <tokenize|analyze_sentiment|extract_entities|summarize> \"text\"");
+                    continue;
+                }
+                
+                let command = parts[1].as_str();  // Convert to &str
+                // Split input to get text after the command
+                let args: Vec<&str> = input.splitn(3, ' ').collect();
+                let text = if args.len() > 2 { args[2] } else { "" };
+                
+                // Create array of &str for plugin arguments
+                let plugin_args = [command, text];
+                
+                match plugins::execute_plugin("nlp", &plugin_args) {
+                    Ok(result) => println!("{}", result),
+                    Err(e) => println!("Error executing NLP plugin: {}", e),
+                }
+            },
+            "img" => {
+                // Image processing plugin shortcut
+                if parts.len() < 2 {
+                    println!("Usage: img <resize|crop|grayscale|blur|rotate> [args...]");
+                    continue;
+                }
+                
+                // Get command as &str
+                let command_str = parts[1].as_str();
+                
+                // Create array of string slices for arguments
+                let mut args_str: Vec<&str> = Vec::with_capacity(parts.len() - 1);
+                args_str.push(command_str);
+                
+                // Add remaining arguments as &str
+                for arg in &parts[2..] {
+                    args_str.push(arg.as_str());
+                }
+                
+                match plugins::execute_plugin("img", &args_str) {
+                    Ok(result) => println!("{}", result),
+                    Err(e) => println!("Error executing Image Processing plugin: {}", e),
+                }
+            },
+            "mm" => {
+                // Multi-modal plugin shortcut
+                if parts.len() < 2 {
+                    println!("Usage: mm <load|convert|combine|extract_features> [args...]");
+                    continue;
+                }
+                
+                // Get command as &str
+                let command_str = parts[1].as_str();
+                
+                // Create array of string slices for arguments
+                let mut args_str: Vec<&str> = Vec::with_capacity(parts.len() - 1);
+                args_str.push(command_str);
+                
+                // Add remaining arguments as &str
+                for arg in &parts[2..] {
+                    args_str.push(arg.as_str());
+                }
+                
+                match plugins::execute_plugin("mm", &args_str) {
+                    Ok(result) => println!("{}", result),
+                    Err(e) => println!("Error executing Multi-Modal plugin: {}", e),
                 }
             },
             _ => println!("Unknown command: '{}'. Type 'help' for available commands.", command),
