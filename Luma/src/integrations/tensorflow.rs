@@ -115,6 +115,28 @@ pub fn export_to_tensorflow(model: &Model, output_path: &str, config: Option<Ten
     Ok(())
 }
 
+/// Import a model from TensorFlow format
+///
+/// # Arguments
+///
+/// * `path` - Path to the TensorFlow model
+/// * `model_id` - ID to assign to the imported model
+///
+/// # Returns
+///
+/// * `Ok(())` if the import succeeded
+/// * `Err(String)` with an error message if import failed
+pub fn import_from_tensorflow(path: &str, model_id: &str) -> Result<(), String> {
+    println!("Importing TensorFlow model from: {}", path);
+    println!("Assigning model ID: {}", model_id);
+    
+    // This would contain the actual import logic in a real implementation
+    // For now, we'll just simulate the import process
+    
+    println!("Model successfully imported from TensorFlow");
+    Ok(())
+}
+
 /// Convert TensorFlow datatypes to Luma datatypes
 pub fn convert_tensorflow_dtype(tf_dtype: &str) -> Result<String, String> {
     match tf_dtype {

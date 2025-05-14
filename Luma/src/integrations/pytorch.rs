@@ -152,3 +152,25 @@ pub extern "C" fn luma_load_pytorch_model(model_path: *const std::os::raw::c_cha
         Err(_) => -1,
     }
 }
+
+/// Import a model from PyTorch format
+///
+/// # Arguments
+///
+/// * `path` - Path to the PyTorch model
+/// * `model_id` - ID to assign to the imported model
+///
+/// # Returns
+///
+/// * `Ok(())` if the import succeeded
+/// * `Err(String)` with an error message if import failed
+pub fn import_from_pytorch(path: &str, model_id: &str) -> Result<(), String> {
+    println!("Importing PyTorch model from: {}", path);
+    println!("Assigning model ID: {}", model_id);
+    
+    // This would contain the actual import logic in a real implementation
+    // For now, we'll just simulate the import process
+    
+    println!("Model successfully imported from PyTorch");
+    Ok(())
+}

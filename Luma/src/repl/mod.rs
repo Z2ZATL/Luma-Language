@@ -13,7 +13,7 @@ use crate::ai::engine::accelerators;
 use crate::utilities::{logging, profiling, visualization};
 use crate::plugins;
 // Integration modules
-use crate::integrations::{tensorflow, pytorch, huggingface, web};
+use crate::integrations::{tensorflow, pytorch, huggingface};
 use crate::compiler::backend::wasm;
 use std::collections::HashMap;
 
@@ -168,7 +168,7 @@ pub fn start_repl() {
                                 tf_version: "2.8.0".to_string(),
                                 use_tflite: tflite,
                                 include_weights: true,
-                                use_saved_model: saved_model,
+                                optimize_for_inference: saved_model, // using saved_model flag for optimize_for_inference
                             };
                             
                             let model = tensorflow::Model::new(model_name);
@@ -217,10 +217,11 @@ pub fn start_repl() {
                             println!("Also export to ONNX: {}", to_onnx);
                             
                             let config = pytorch::PyTorchExportConfig {
-                                torch_version: "1.13.0".to_string(),
-                                use_jit: true,
-                                optimize: true,
-                                include_weights: true,
+                                pytorch_version: "1.13.0".to_string(),
+                                use_torchscript: true,
+                                use_onnx: false,
+                                optimize_for_mobile: false,
+                                quantize: false,
                             };
                             
                             let model = tensorflow::Model::new(model_name);
@@ -230,7 +231,7 @@ pub fn start_repl() {
                                     
                                     if to_onnx {
                                         let onnx_path = format!("{}.onnx", path);
-                                        match pytorch::convert_to_onnx(&model, &onnx_path, 15) {
+                                        match pytorch::convert_to_onnx(&model, &onnx_path, Some(15)) {
                                             Ok(_) => println!("Model also exported to ONNX format at {}", onnx_path),
                                             Err(e) => println!("Failed to export to ONNX: {}", e),
                                         }
@@ -268,7 +269,7 @@ pub fn start_repl() {
                             println!("ONNX opset version: {}", opset);
                             
                             let model = tensorflow::Model::new(model_name);
-                            match pytorch::convert_to_onnx(&model, path, opset) {
+                            match pytorch::convert_to_onnx(&model, path, Some(opset)) {
                                 Ok(_) => println!("Model exported successfully to ONNX format"),
                                 Err(e) => println!("Failed to export model: {}", e),
                             }
@@ -301,7 +302,7 @@ pub fn start_repl() {
                             }
                             println!("Result limit: {}", limit);
                             
-                            match huggingface::search_models(query, task, limit) {
+                            match huggingface::search_models(query, task.as_deref(), limit) {
                                 Ok(results) => {
                                     println!("Found {} models:", results.len());
                                     for (i, result) in results.iter().enumerate() {
@@ -332,10 +333,13 @@ pub fn start_repl() {
                             
                             let config = huggingface::HuggingFaceConfig {
                                 use_gpu: true,
+                                quantize: false,
+                                cache_model: true,
                                 cache_dir: cache_dir.unwrap_or_else(|| "./.cache".to_string()),
-                                revision: revision,
-                                use_auth_token: None,
+                                revision: revision.unwrap_or_else(|| "main".to_string()),
+                                auth_token: None,
                                 model_id: model_id.to_string(),
+                                config_params: std::collections::HashMap::new(),
                             };
                             
                             match huggingface::download_model(&config) {

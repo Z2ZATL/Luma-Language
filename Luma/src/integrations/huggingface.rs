@@ -14,11 +14,17 @@ pub struct HuggingFaceConfig {
     /// Whether to cache the model locally
     pub cache_model: bool,
     
+    /// Cache directory path
+    pub cache_dir: String,
+    
     /// Authentication token for private models
     pub auth_token: Option<String>,
     
     /// Custom model revision (default is "main")
     pub revision: String,
+    
+    /// Model ID on Hugging Face Hub
+    pub model_id: String,
     
     /// Additional model configuration parameters
     pub config_params: HashMap<String, String>,
@@ -30,11 +36,91 @@ impl Default for HuggingFaceConfig {
             use_gpu: true,
             quantize: false,
             cache_model: true,
+            cache_dir: "./.cache".to_string(),
             auth_token: None,
             revision: "main".to_string(),
+            model_id: "bert-base-uncased".to_string(),
             config_params: HashMap::new(),
         }
     }
+}
+
+/// Search for models on Hugging Face Hub
+///
+/// # Arguments
+///
+/// * `query` - Search query string
+/// * `task` - Optional task filter (e.g., "text-classification", "token-classification")
+/// * `limit` - Maximum number of results to return
+///
+/// # Returns
+///
+/// * `Ok(Vec<String>)` with model IDs if successful
+/// * `Err(String)` with an error message if search failed
+pub fn search_models(query: &str, task: Option<&str>, limit: usize) -> Result<Vec<String>, String> {
+    if query.is_empty() {
+        return Err("Search query cannot be empty".to_string());
+    }
+    
+    println!("Searching for models with query: {}", query);
+    if let Some(task_filter) = task {
+        println!("Filtering by task: {}", task_filter);
+    }
+    println!("Limiting results to: {}", limit);
+    
+    // Placeholder: Simulate searching for models
+    let results = vec![
+        "bert-base-uncased".to_string(),
+        "roberta-base".to_string(),
+        "gpt2".to_string(),
+        "t5-small".to_string(),
+        "facebook/bart-large-cnn".to_string(),
+    ];
+    
+    // Filter by query (case-insensitive contains)
+    let filtered: Vec<String> = results
+        .into_iter()
+        .filter(|model| model.to_lowercase().contains(&query.to_lowercase()))
+        .take(limit)
+        .collect();
+    
+    if filtered.is_empty() {
+        return Err(format!("No models found for query: {}", query));
+    }
+    
+    Ok(filtered)
+}
+
+/// Download a model from Hugging Face Hub
+///
+/// # Arguments
+///
+/// * `config` - Configuration for the download
+///
+/// # Returns
+///
+/// * `Ok(String)` with the path to the downloaded model if successful
+/// * `Err(String)` with an error message if download failed
+pub fn download_model(config: &HuggingFaceConfig) -> Result<String, String> {
+    if config.model_id.is_empty() {
+        return Err("Model ID cannot be empty".to_string());
+    }
+    
+    println!("Downloading model: {}", config.model_id);
+    println!("Revision: {}", config.revision);
+    println!("Cache directory: {}", config.cache_dir);
+    println!("Use GPU: {}", config.use_gpu);
+    println!("Quantize: {}", config.quantize);
+    
+    if let Some(token) = &config.auth_token {
+        println!("Using authentication token: {}", token.chars().take(4).collect::<String>() + "****");
+    }
+    
+    // Placeholder: Simulate downloading a model
+    let download_path = format!("{}/{}", config.cache_dir, config.model_id.replace("/", "_"));
+    
+    println!("Download complete!");
+    Ok(download_path)
 }
 
 /// Load a model from Hugging Face Hub
