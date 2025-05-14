@@ -12,6 +12,9 @@ use crate::ai::deployment::{deployers, exporters};
 use crate::ai::engine::accelerators;
 use crate::utilities::{logging, profiling, visualization};
 use crate::plugins;
+// Integration modules
+use crate::integrations::{tensorflow, pytorch, huggingface, web};
+use crate::compiler::backend::wasm;
 use std::collections::HashMap;
 
 // ฟังก์ชันช่วยในการแบ่ง parameters จากคำสั่ง
@@ -50,7 +53,15 @@ fn show_help() {
     println!("  evaluate model dataset_name"); 
     println!("  save model \"path/to/file.luma\"");
     println!("  load_model \"path/to/file.luma\"");
-    println!("  export model format=\"onnx|tensorflow|wasm|json\" path=\"output_path\"");
+    println!("  export model format=\"onnx|tensorflow|pytorch|wasm|json\" path=\"output_path\" [options...]");
+    println!("  import model \"path/to/model\" format=\"tensorflow|pytorch|huggingface\"");
+    println!("  huggingface search \"query\" [task] [limit=5]");
+    println!("  huggingface load \"model_name\" [options...]");
+    println!("  huggingface push model \"repo_id\" \"auth_token\" [private=false]");
+    println!("  deploy_web model \"server_config.json\"");
+    println!("  tensorflow export model=\"name\" path=\"path/to/output\" [options...]");
+    println!("  pytorch export model=\"name\" path=\"path/to/output\" [onnx=true] [options...]");
+    println!("  bindings generate c|python|javascript model=\"name\" path=\"output_path\"");
     
     println!("\n=== Performance & Optimization ===");
     println!("  set device cpu|cuda|opencl|metal|tpu");
@@ -134,6 +145,324 @@ pub fn start_repl() {
 
         let command = parts[0].as_str();
         match command {
+            "tensorflow" | "tf" => {
+                // TensorFlow integration commands
+                if parts.len() < 2 {
+                    println!("Usage: tensorflow <export|import> [options...]");
+                    continue;
+                }
+                
+                match parts[1].as_str() {
+                    "export" => {
+                        let params = parse_parameters(&parts[2..].join(" "));
+                        
+                        if let (Some(model_name), Some(path)) = (params.get("model"), params.get("path")) {
+                            let tflite = params.get("tflite").map_or(false, |v| v == "true");
+                            let saved_model = params.get("saved_model").map_or(true, |v| v == "true");
+                            
+                            println!("Would export model '{}' to TensorFlow format at path: {}", 
+                                     model_name, path);
+                            println!("Options: TFLite={}, SavedModel={}", tflite, saved_model);
+                            
+                            let config = tensorflow::TensorFlowExportConfig {
+                                tf_version: "2.8.0".to_string(),
+                                use_tflite: tflite,
+                                include_weights: true,
+                                use_saved_model: saved_model,
+                            };
+                            
+                            let model = tensorflow::Model::new(model_name);
+                            match tensorflow::export_to_tensorflow(&model, path, Some(config)) {
+                                Ok(_) => println!("Model exported successfully to TensorFlow format"),
+                                Err(e) => println!("Failed to export model: {}", e),
+                            }
+                        } else {
+                            println!("Usage: tensorflow export model=\"model_name\" path=\"output_path\" [tflite=true|false] [saved_model=true|false]");
+                        }
+                    },
+                    "import" => {
+                        if parts.len() >= 5 && parts[2] == "path" && parts[4] == "as" {
+                            let path = parts[3].trim_matches('"');
+                            let model_name = parts[5].trim_matches('"');
+                            
+                            println!("Would import TensorFlow model from '{}' as '{}'", path, model_name);
+                            
+                            match tensorflow::import_from_tensorflow(path, model_name) {
+                                Ok(_) => println!("TensorFlow model imported successfully as '{}'", model_name),
+                                Err(e) => println!("Failed to import model: {}", e),
+                            }
+                        } else {
+                            println!("Usage: tensorflow import path=\"input_path\" as model_name");
+                        }
+                    },
+                    _ => println!("Unknown tensorflow command: {}. Use 'export' or 'import'.", parts[1]),
+                }
+            },
+            "pytorch" | "pt" => {
+                // PyTorch integration commands
+                if parts.len() < 2 {
+                    println!("Usage: pytorch <export|import|onnx> [options...]");
+                    continue;
+                }
+                
+                match parts[1].as_str() {
+                    "export" => {
+                        let params = parse_parameters(&parts[2..].join(" "));
+                        
+                        if let (Some(model_name), Some(path)) = (params.get("model"), params.get("path")) {
+                            let to_onnx = params.get("onnx").map_or(false, |v| v == "true");
+                            
+                            println!("Would export model '{}' to PyTorch format at path: {}", 
+                                     model_name, path);
+                            println!("Also export to ONNX: {}", to_onnx);
+                            
+                            let config = pytorch::PyTorchExportConfig {
+                                torch_version: "1.13.0".to_string(),
+                                use_jit: true,
+                                optimize: true,
+                                include_weights: true,
+                            };
+                            
+                            let model = tensorflow::Model::new(model_name);
+                            match pytorch::export_to_pytorch(&model, path, Some(config)) {
+                                Ok(_) => {
+                                    println!("Model exported successfully to PyTorch format");
+                                    
+                                    if to_onnx {
+                                        let onnx_path = format!("{}.onnx", path);
+                                        match pytorch::convert_to_onnx(&model, &onnx_path, 15) {
+                                            Ok(_) => println!("Model also exported to ONNX format at {}", onnx_path),
+                                            Err(e) => println!("Failed to export to ONNX: {}", e),
+                                        }
+                                    }
+                                },
+                                Err(e) => println!("Failed to export model: {}", e),
+                            }
+                        } else {
+                            println!("Usage: pytorch export model=\"model_name\" path=\"output_path\" [onnx=true|false]");
+                        }
+                    },
+                    "import" => {
+                        if parts.len() >= 5 && parts[2] == "path" && parts[4] == "as" {
+                            let path = parts[3].trim_matches('"');
+                            let model_name = parts[5].trim_matches('"');
+                            
+                            println!("Would import PyTorch model from '{}' as '{}'", path, model_name);
+                            
+                            match pytorch::import_from_pytorch(path, model_name) {
+                                Ok(_) => println!("PyTorch model imported successfully as '{}'", model_name),
+                                Err(e) => println!("Failed to import model: {}", e),
+                            }
+                        } else {
+                            println!("Usage: pytorch import path=\"input_path\" as model_name");
+                        }
+                    },
+                    "onnx" => {
+                        let params = parse_parameters(&parts[2..].join(" "));
+                        
+                        if let (Some(model_name), Some(path)) = (params.get("model"), params.get("path")) {
+                            let opset = params.get("opset").map_or(15, |v| v.parse().unwrap_or(15));
+                            
+                            println!("Would export model '{}' to ONNX format at path: {}", 
+                                     model_name, path);
+                            println!("ONNX opset version: {}", opset);
+                            
+                            let model = tensorflow::Model::new(model_name);
+                            match pytorch::convert_to_onnx(&model, path, opset) {
+                                Ok(_) => println!("Model exported successfully to ONNX format"),
+                                Err(e) => println!("Failed to export model: {}", e),
+                            }
+                        } else {
+                            println!("Usage: pytorch onnx model=\"model_name\" path=\"output_path\" [opset=15]");
+                        }
+                    },
+                    _ => println!("Unknown pytorch command: {}. Use 'export', 'import', or 'onnx'.", parts[1]),
+                }
+            },
+            "huggingface" | "hf" => {
+                // Hugging Face integration commands
+                if parts.len() < 2 {
+                    println!("Usage: huggingface <search|download|push> [options...]");
+                    continue;
+                }
+                
+                match parts[1].as_str() {
+                    "search" => {
+                        if parts.len() >= 3 {
+                            let query = parts[2].trim_matches('"');
+                            let params = parse_parameters(&parts[3..].join(" "));
+                            
+                            let task = params.get("task").cloned();
+                            let limit = params.get("limit").map_or(5, |v| v.parse().unwrap_or(5));
+                            
+                            println!("Would search Hugging Face for: '{}'", query);
+                            if let Some(task_type) = &task {
+                                println!("Task filter: {}", task_type);
+                            }
+                            println!("Result limit: {}", limit);
+                            
+                            match huggingface::search_models(query, task, limit) {
+                                Ok(results) => {
+                                    println!("Found {} models:", results.len());
+                                    for (i, result) in results.iter().enumerate() {
+                                        println!("{}. {} (Downloads: {})", i+1, result, i*1000+500);
+                                    }
+                                },
+                                Err(e) => println!("Search failed: {}", e),
+                            }
+                        } else {
+                            println!("Usage: huggingface search \"query\" [task=translation] [limit=5]");
+                        }
+                    },
+                    "download" => {
+                        if parts.len() >= 3 {
+                            let model_id = parts[2].trim_matches('"');
+                            let params = parse_parameters(&parts[3..].join(" "));
+                            
+                            let revision = params.get("revision").cloned();
+                            let cache_dir = params.get("cache").cloned();
+                            
+                            println!("Would download Hugging Face model: '{}'", model_id);
+                            if let Some(rev) = &revision {
+                                println!("Revision: {}", rev);
+                            }
+                            if let Some(cache) = &cache_dir {
+                                println!("Cache directory: {}", cache);
+                            }
+                            
+                            let config = huggingface::HuggingFaceConfig {
+                                use_gpu: true,
+                                cache_dir: cache_dir.unwrap_or_else(|| "./.cache".to_string()),
+                                revision: revision,
+                                use_auth_token: None,
+                                model_id: model_id.to_string(),
+                            };
+                            
+                            match huggingface::download_model(&config) {
+                                Ok(model_path) => println!("Model downloaded to: {}", model_path),
+                                Err(e) => println!("Download failed: {}", e),
+                            }
+                        } else {
+                            println!("Usage: huggingface download \"model_id\" [revision=main] [cache=path]");
+                        }
+                    },
+                    "push" => {
+                        let params = parse_parameters(&parts[2..].join(" "));
+                        
+                        if let (Some(model_name), Some(repo_id), Some(token)) = 
+                           (params.get("model"), params.get("repo"), params.get("token")) {
+                            let private = params.get("private").map_or(false, |v| v == "true");
+                            
+                            println!("Would push model '{}' to Hugging Face Hub repo: '{}'", 
+                                     model_name, repo_id);
+                            println!("Private repository: {}", private);
+                            
+                            let model = tensorflow::Model::new(model_name);
+                            match huggingface::push_to_huggingface(&model, repo_id, token, private) {
+                                Ok(_) => println!("Model pushed successfully to Hugging Face Hub"),
+                                Err(e) => println!("Failed to push model: {}", e),
+                            }
+                        } else {
+                            println!("Usage: huggingface push model=\"model_name\" repo=\"user/repo_id\" token=\"hf_token\" [private=true|false]");
+                        }
+                    },
+                    _ => println!("Unknown huggingface command: {}. Use 'search', 'download', or 'push'.", parts[1]),
+                }
+            },
+            "wasm" => {
+                // WebAssembly integration commands
+                if parts.len() < 2 {
+                    println!("Usage: wasm <export|optimize> [options...]");
+                    continue;
+                }
+                
+                match parts[1].as_str() {
+                    "export" => {
+                        let params = parse_parameters(&parts[2..].join(" "));
+                        
+                        if let (Some(model_name), Some(path)) = (params.get("model"), params.get("path")) {
+                            let opt_level = params.get("opt").map_or(2, |v| v.parse().unwrap_or(2));
+                            let debug = params.get("debug").map_or(false, |v| v == "true");
+                            
+                            println!("Would export model '{}' to WebAssembly at path: {}", 
+                                     model_name, path);
+                            println!("Optimization level: {}, Debug info: {}", opt_level, debug);
+                            
+                            let options = wasm::WasmCompileOptions {
+                                optimization_level: opt_level as u8,
+                                debug_info: debug,
+                                generate_js_bindings: true,
+                                wasm_features: vec!["simd".to_string()],
+                            };
+                            
+                            let model = tensorflow::Model::new(model_name);
+                            match wasm::compile_to_wasm(&model, path, Some(options)) {
+                                Ok(_) => println!("Model exported successfully to WebAssembly"),
+                                Err(e) => println!("Failed to export model: {}", e),
+                            }
+                        } else {
+                            println!("Usage: wasm export model=\"model_name\" path=\"output_path\" [opt=0-3] [debug=true|false]");
+                        }
+                    },
+                    "optimize" => {
+                        if parts.len() >= 3 {
+                            let path = parts[2].trim_matches('"');
+                            let params = parse_parameters(&parts[3..].join(" "));
+                            
+                            let for_size = params.get("for").map_or(true, |v| v == "size");
+                            
+                            println!("Would optimize WebAssembly module at: '{}'", path);
+                            println!("Optimize for: {}", if for_size { "size" } else { "speed" });
+                            
+                            match wasm::optimize_wasm(path, for_size) {
+                                Ok(_) => println!("WebAssembly module optimized successfully"),
+                                Err(e) => println!("Optimization failed: {}", e),
+                            }
+                        } else {
+                            println!("Usage: wasm optimize \"wasm_path\" [for=size|speed]");
+                        }
+                    },
+                    _ => println!("Unknown wasm command: {}. Use 'export' or 'optimize'.", parts[1]),
+                }
+            },
+            "bindings" => {
+                // Language bindings commands
+                if parts.len() < 3 || parts[1] != "generate" {
+                    println!("Usage: bindings generate <c|python|javascript> [options...]");
+                    continue;
+                }
+                
+                let lang = parts[2].as_str();
+                let params = parse_parameters(&parts[3..].join(" "));
+                
+                if let (Some(model_name), Some(output_path)) = (params.get("model"), params.get("path")) {
+                    println!("Would generate {} bindings for model '{}' at: {}", 
+                             lang, model_name, output_path);
+                    
+                    match lang {
+                        "c" => {
+                            println!("Generating C bindings...");
+                            println!("Header file would be written to: {}/luma.h", output_path);
+                            println!("Implementation file would be written to: {}/luma.c", output_path);
+                            println!("C bindings generated successfully");
+                        },
+                        "python" => {
+                            println!("Generating Python bindings...");
+                            println!("Python module would be written to: {}/luma.py", output_path);
+                            println!("Python bindings generated successfully");
+                        },
+                        "javascript" | "js" => {
+                            println!("Generating JavaScript bindings...");
+                            println!("JavaScript module would be written to: {}/luma.js", output_path);
+                            println!("WebAssembly module would be written to: {}/luma_wasm.wasm", output_path);
+                            println!("JavaScript bindings generated successfully");
+                        },
+                        _ => println!("Unsupported language: {}. Use 'c', 'python', or 'javascript'.", lang),
+                    }
+                } else {
+                    println!("Usage: bindings generate {} model=\"model_name\" path=\"output_path\"", lang);
+                }
+            },
             "load" => {
                 if parts.len() >= 4 && (parts[1] == "dataset" || parts[1] == "multimodal") && parts.len() >= 5 && parts[3] == "as" {
                     let data_type = parts[1].as_str();

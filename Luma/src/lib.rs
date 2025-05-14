@@ -5,6 +5,7 @@
 
 pub mod ai;
 pub mod core;
+pub mod compiler;
 pub mod integrations;
 pub mod utilities;
 
