@@ -122,7 +122,7 @@ pub fn create_js_api(model: &Model, output_path: &str) -> Result<(), String> {
 }
 
 /// Deploy a Luma model to a web server
-pub fn deploy_to_web_server(model: &Model, server_config: &str) -> Result<String, String> {
+pub fn deploy_to_web_server(_model: &Model, server_config: &str) -> Result<String, String> {
     println!("Deploying model to web server with config: {}", server_config);
     
     // This would handle deployment to a web server

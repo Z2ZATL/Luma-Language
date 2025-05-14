@@ -41,7 +41,7 @@ impl Default for WasmCompileOptions {
 /// * `Err(String)` with an error message if compilation failed
 pub fn compile_to_wasm(model: &Model, output_path: &str, options: Option<WasmCompileOptions>) -> Result<(), String> {
     let options = options.unwrap_or_default();
-    let output_dir = Path::new(output_path).parent().unwrap_or(Path::new("."));
+    let _output_dir = Path::new(output_path).parent().unwrap_or(Path::new("."));
     
     println!("Compiling model '{}' to WebAssembly", model.get_id());
     println!("Output path: {}", output_path);

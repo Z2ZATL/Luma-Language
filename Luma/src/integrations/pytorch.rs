@@ -80,7 +80,7 @@ pub fn load_pytorch_model(model_path: &str) -> Result<Model, String> {
 ///
 /// * `Ok(())` if the export succeeded
 /// * `Err(String)` with an error message if export failed
-pub fn export_to_pytorch(model: &Model, output_path: &str, config: Option<PyTorchExportConfig>) -> Result<(), String> {
+pub fn export_to_pytorch(_model: &Model, output_path: &str, config: Option<PyTorchExportConfig>) -> Result<(), String> {
     let config = config.unwrap_or_default();
     
     println!("Exporting model to PyTorch format");
@@ -121,7 +121,7 @@ pub fn export_to_pytorch(model: &Model, output_path: &str, config: Option<PyTorc
 }
 
 /// Convert PyTorch model to ONNX format for wider compatibility
-pub fn convert_to_onnx(model: &Model, output_path: &str, opset_version: Option<i32>) -> Result<(), String> {
+pub fn convert_to_onnx(_model: &Model, output_path: &str, opset_version: Option<i32>) -> Result<(), String> {
     let opset = opset_version.unwrap_or(12); // Default to ONNX opset 12
     
     println!("Converting Luma model to ONNX format");

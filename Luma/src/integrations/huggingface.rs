@@ -187,7 +187,7 @@ pub fn load_huggingface_model(model_name: &str, config: Option<HuggingFaceConfig
 ///
 /// * `Ok(String)` with the URL of the pushed model if successful
 /// * `Err(String)` with an error message if push failed
-pub fn push_to_huggingface(model: &Model, repo_id: &str, auth_token: &str, private: bool) -> Result<String, String> {
+pub fn push_to_huggingface(_model: &Model, repo_id: &str, auth_token: &str, private: bool) -> Result<String, String> {
     if repo_id.is_empty() {
         return Err("Repository ID cannot be empty".to_string());
     }

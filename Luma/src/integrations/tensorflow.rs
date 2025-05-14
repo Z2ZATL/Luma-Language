@@ -85,7 +85,7 @@ pub fn load_tensorflow_model(model_path: &str) -> Result<Model, String> {
 ///
 /// * `Ok(())` if the export succeeded
 /// * `Err(String)` with an error message if export failed
-pub fn export_to_tensorflow(model: &Model, output_path: &str, config: Option<TensorFlowExportConfig>) -> Result<(), String> {
+pub fn export_to_tensorflow(_model: &Model, output_path: &str, config: Option<TensorFlowExportConfig>) -> Result<(), String> {
     let config = config.unwrap_or_default();
     
     println!("Exporting model to TensorFlow format");

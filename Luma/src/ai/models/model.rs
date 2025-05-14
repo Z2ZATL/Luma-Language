@@ -164,8 +164,8 @@ impl NeuralNetwork {
     /// Legacy forward pass through a neural network (will be deprecated)
     /// This is a simplified version that creates a temporary computation graph
     pub fn legacy_forward(&self, input: &Tensor) -> Tensor {
-        let mut graph = ComputationGraph::new();
-        let mut x = input.clone();
+        let _graph = ComputationGraph::new();
+        let x = input.clone();
         
         // Simplified implementation that does not use the actual layers
         // In a real implementation, we would need to make self.layers mutable
