@@ -4,9 +4,8 @@
 //! including methods for combining text, image, audio, and numerical data.
 
 use crate::plugins::{register_plugin, PluginResult};
-use crate::ai::data::multi_modal::{MultiModalData, load_multi_modal, image_to_matrix, audio_to_matrix};
+use crate::ai::data::multi_modal::MultiModalData;
 use std::path::Path;
-use std::collections::HashMap;
 
 /// Register the Multi-Modal plugin with Luma
 pub fn register_multi_modal_plugin() -> Result<(), String> {
@@ -167,6 +166,7 @@ fn extract_multi_modal_features(args: &[&str]) -> PluginResult {
 }
 
 /// Utility function to get modality type as string
+#[allow(dead_code)]
 fn get_modality_type(data: &MultiModalData) -> &'static str {
     match data {
         MultiModalData::Text(_) => "tabular/text",

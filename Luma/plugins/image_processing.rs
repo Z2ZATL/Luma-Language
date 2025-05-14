@@ -4,7 +4,7 @@
 //! including resizing, cropping, filtering, and basic transformations.
 
 use crate::plugins::{register_plugin, PluginResult};
-use image::{GenericImageView, ImageBuffer, DynamicImage, Rgba};
+use image::GenericImageView;
 use std::path::Path;
 
 /// Register the Image Processing plugin with Luma
@@ -82,7 +82,8 @@ fn resize_image(args: &[&str]) -> PluginResult {
     };
     
     // Resize the image
-    let resized = img.resize_exact(width, height, image::imageops::FilterType::Lanczos3);
+    // Using underscore to indicate that variable is intentionally unused in this demo
+    let _resized = img.resize_exact(width, height, image::imageops::FilterType::Lanczos3);
     
     // In a real implementation, this would save the image to the output path
     // For our demo, we'll just print the operation details
@@ -176,7 +177,7 @@ fn grayscale_image(args: &[&str]) -> PluginResult {
     };
     
     // Open the image
-    let img = match image::open(input_path) {
+    let _img = match image::open(input_path) {
         Ok(img) => img,
         Err(e) => return Err(format!("Failed to open image: {}", e)),
     };
@@ -214,7 +215,7 @@ fn blur_image(args: &[&str]) -> PluginResult {
     };
     
     // Open the image
-    let img = match image::open(input_path) {
+    let _img = match image::open(input_path) {
         Ok(img) => img,
         Err(e) => return Err(format!("Failed to open image: {}", e)),
     };
@@ -252,7 +253,7 @@ fn rotate_image(args: &[&str]) -> PluginResult {
     };
     
     // Open the image
-    let img = match image::open(input_path) {
+    let _img = match image::open(input_path) {
         Ok(img) => img,
         Err(e) => return Err(format!("Failed to open image: {}", e)),
     };
