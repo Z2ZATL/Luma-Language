@@ -34,61 +34,448 @@ fn parse_parameters(input: &str) -> std::collections::HashMap<String, String> {
     params
 }
 
-// ฟังก์ชันสำหรับแสดงความช่วยเหลือ
-fn show_help() {
-    println!("Available commands:");
-    println!("\n=== Data Management ===");
-    println!("  load dataset \"path\" as dataset_name [lazy=true|false]");
-    println!("  load multimodal \"path\" as dataset_name");
-    println!("  print dataset dataset_name");
-    println!("  split dataset dataset_name ratio=0.3");
-    println!("  preprocess dataset_name method=normalize|scale|log|sqrt as new_name");
-    println!("  augment dataset_name method=noise(0.1)|dropout(0.2)|rotation|mirror|shuffle as new_name");
-    println!("  rename dataset source_name as target_name");
-    println!("  list datasets");
-    println!("  clear datasets");
-    
-    println!("\n=== Model Training & Evaluation ===");
-    println!("  train epochs=10 batch_size=32 learning_rate=0.01");
-    println!("  evaluate model dataset_name"); 
-    println!("  save model \"path/to/file.luma\"");
-    println!("  load_model \"path/to/file.luma\"");
-    println!("  export model format=\"onnx|tensorflow|pytorch|wasm|json\" path=\"output_path\" [options...]");
-    println!("  import model \"path/to/model\" format=\"tensorflow|pytorch|huggingface\"");
-    println!("  huggingface search \"query\" [task] [limit=5]");
-    println!("  huggingface load \"model_name\" [options...]");
-    println!("  huggingface push model \"repo_id\" \"auth_token\" [private=false]");
-    println!("  deploy_web model \"server_config.json\"");
-    println!("  tensorflow export model=\"name\" path=\"path/to/output\" [options...]");
-    println!("  pytorch export model=\"name\" path=\"path/to/output\" [onnx=true] [options...]");
-    println!("  bindings generate c|python|javascript model=\"name\" path=\"output_path\"");
-    
-    println!("\n=== Performance & Optimization ===");
-    println!("  set device cpu|cuda|opencl|metal|tpu");
-    println!("  device info");
-    println!("  start profiling");
-    println!("  stop profiling");
-    println!("  plot metrics \"output_path.svg\"");
-    println!("  set log_level trace|debug|info|warning|error|fatal");
-    
-    println!("\n=== Plugins ===");
-    println!("  plugin list");
-    println!("  plugin info <plugin_id>");
-    println!("  plugin enable <plugin_id>");
-    println!("  plugin disable <plugin_id>");
-    println!("  execute plugin <plugin_id> <command> [args...]");
-    println!("  nlp tokenize \"Your text here\"");
-    println!("  nlp analyze_sentiment \"Your text here\"");
-    println!("  img resize \"input.jpg\" 800 600 \"output.jpg\"");
-    println!("  mm load \"image.jpg\" [dataset_name]");
-    
-    println!("\n=== System ===");
-    println!("  exit");
-    println!("  help");
+// Struct เพื่อเก็บข้อมูลคำสั่งและคำอธิบาย
+struct CommandHelp {
+    command: &'static str,
+    description: &'static str,
+    usage: &'static str,
+    examples: Vec<&'static str>,
+    category: &'static str,
 }
 
+// ฟังก์ชันสำหรับคืนค่ารายการช่วยเหลือทั้งหมด
+fn get_command_help() -> Vec<CommandHelp> {
+    vec![
+        // === Data Management ===
+        CommandHelp {
+            command: "load dataset",
+            description: "Load a dataset from disk into memory",
+            usage: "load dataset \"path\" as dataset_name [lazy=true|false]",
+            examples: vec![
+                "load dataset \"data/mnist.csv\" as mnist",
+                "load dataset \"data/large_dataset.parquet\" as large_data lazy=true"
+            ],
+            category: "data"
+        },
+        CommandHelp {
+            command: "load multimodal",
+            description: "Load a multi-modal dataset (images, text, etc.)",
+            usage: "load multimodal \"path\" as dataset_name",
+            examples: vec!["load multimodal \"data/image_text_pairs/\" as multidata"],
+            category: "data"
+        },
+        CommandHelp {
+            command: "print dataset",
+            description: "Display information about a dataset",
+            usage: "print dataset dataset_name",
+            examples: vec!["print dataset mnist"],
+            category: "data"
+        },
+        CommandHelp {
+            command: "split dataset",
+            description: "Split a dataset into training and testing sets",
+            usage: "split dataset dataset_name ratio=0.3",
+            examples: vec!["split dataset mnist ratio=0.2"],
+            category: "data"
+        },
+        CommandHelp {
+            command: "preprocess",
+            description: "Apply preprocessing to a dataset",
+            usage: "preprocess dataset_name method=normalize|scale|log|sqrt as new_name",
+            examples: vec![
+                "preprocess mnist method=normalize as mnist_norm",
+                "preprocess housing method=log as housing_log"
+            ],
+            category: "data"
+        },
+        CommandHelp {
+            command: "augment",
+            description: "Apply data augmentation to a dataset",
+            usage: "augment dataset_name method=noise(0.1)|dropout(0.2)|rotation|mirror|shuffle as new_name",
+            examples: vec![
+                "augment mnist method=noise(0.1) as mnist_noisy",
+                "augment images method=rotation as images_rotated"
+            ],
+            category: "data"
+        },
+        CommandHelp {
+            command: "rename dataset",
+            description: "Rename a dataset",
+            usage: "rename dataset source_name as target_name",
+            examples: vec!["rename dataset mnist_old as mnist_new"],
+            category: "data"
+        },
+        CommandHelp {
+            command: "list datasets",
+            description: "List all loaded datasets",
+            usage: "list datasets",
+            examples: vec!["list datasets"],
+            category: "data"
+        },
+        CommandHelp {
+            command: "clear datasets",
+            description: "Remove all datasets from memory",
+            usage: "clear datasets",
+            examples: vec!["clear datasets"],
+            category: "data"
+        },
+        
+        // === Model Training & Evaluation ===
+        CommandHelp {
+            command: "train",
+            description: "Train a machine learning model",
+            usage: "train epochs=10 batch_size=32 learning_rate=0.01",
+            examples: vec![
+                "train epochs=5 batch_size=64 learning_rate=0.001",
+                "train dataset=mnist epochs=10 optimizer=adam"
+            ],
+            category: "model"
+        },
+        CommandHelp {
+            command: "evaluate",
+            description: "Evaluate a model on a dataset",
+            usage: "evaluate model dataset_name",
+            examples: vec!["evaluate model mnist_test"],
+            category: "model"
+        },
+        CommandHelp {
+            command: "save model",
+            description: "Save a model to disk",
+            usage: "save model \"path/to/file.luma\"",
+            examples: vec!["save model \"models/mnist_classifier.luma\""],
+            category: "model"
+        },
+        CommandHelp {
+            command: "load_model",
+            description: "Load a model from disk",
+            usage: "load_model \"path/to/file.luma\"",
+            examples: vec!["load_model \"models/mnist_classifier.luma\""],
+            category: "model"
+        },
+        CommandHelp {
+            command: "export model",
+            description: "Export a model to a different format",
+            usage: "export model format=\"onnx|tensorflow|pytorch|wasm|json\" path=\"output_path\" [options...]",
+            examples: vec![
+                "export model format=\"onnx\" path=\"models/model.onnx\"",
+                "export model format=\"tensorflow\" path=\"models/tf_model\" saved_model=true"
+            ],
+            category: "model"
+        },
+        CommandHelp {
+            command: "import model",
+            description: "Import a model from another format",
+            usage: "import model \"path/to/model\" format=\"tensorflow|pytorch|huggingface\"",
+            examples: vec!["import model \"external/resnet50.h5\" format=\"tensorflow\""],
+            category: "model"
+        },
+        CommandHelp {
+            command: "huggingface search",
+            description: "Search for models on Hugging Face Hub",
+            usage: "huggingface search \"query\" [task] [limit=5]",
+            examples: vec![
+                "huggingface search \"bert\"",
+                "huggingface search \"sentiment analysis\" task=\"text-classification\" limit=10"
+            ],
+            category: "model"
+        },
+        CommandHelp {
+            command: "huggingface load",
+            description: "Download and load a model from Hugging Face Hub",
+            usage: "huggingface load \"model_name\" [options...]",
+            examples: vec![
+                "huggingface load \"bert-base-uncased\"",
+                "huggingface load \"facebook/bart-large-cnn\" revision=\"main\""
+            ],
+            category: "model"
+        },
+        CommandHelp {
+            command: "huggingface push",
+            description: "Push a model to Hugging Face Hub",
+            usage: "huggingface push model=\"model_name\" repo=\"user/repo_id\" token=\"hf_token\" [private=false]",
+            examples: vec!["huggingface push model=\"my_model\" repo=\"username/model-repo\" token=\"hf_xxxxx\" private=true"],
+            category: "model"
+        },
+        CommandHelp {
+            command: "tensorflow export",
+            description: "Export a model to TensorFlow format",
+            usage: "tensorflow export model=\"name\" path=\"path/to/output\" [options...]",
+            examples: vec![
+                "tensorflow export model=\"my_model\" path=\"exports/tf_model\"",
+                "tensorflow export model=\"classifier\" path=\"exports/tflite_model\" tflite=true"
+            ],
+            category: "model"
+        },
+        CommandHelp {
+            command: "pytorch export",
+            description: "Export a model to PyTorch format",
+            usage: "pytorch export model=\"name\" path=\"path/to/output\" [onnx=true] [options...]",
+            examples: vec![
+                "pytorch export model=\"my_model\" path=\"exports/pytorch_model.pt\"",
+                "pytorch export model=\"classifier\" path=\"exports/model\" onnx=true"
+            ],
+            category: "model"
+        },
+        CommandHelp {
+            command: "bindings generate",
+            description: "Generate language bindings for a model",
+            usage: "bindings generate c|python|javascript model=\"name\" path=\"output_path\"",
+            examples: vec![
+                "bindings generate python model=\"my_model\" path=\"bindings/\"",
+                "bindings generate javascript model=\"web_model\" path=\"www/js/\""
+            ],
+            category: "model"
+        },
+        
+        // === Performance & Optimization ===
+        CommandHelp {
+            command: "set device",
+            description: "Set the computation device",
+            usage: "set device cpu|cuda|opencl|metal|tpu",
+            examples: vec![
+                "set device cuda",
+                "set device cpu"
+            ],
+            category: "performance"
+        },
+        CommandHelp {
+            command: "device info",
+            description: "Display information about available devices",
+            usage: "device info",
+            examples: vec!["device info"],
+            category: "performance"
+        },
+        CommandHelp {
+            command: "start profiling",
+            description: "Start performance profiling",
+            usage: "start profiling",
+            examples: vec!["start profiling"],
+            category: "performance"
+        },
+        CommandHelp {
+            command: "stop profiling",
+            description: "Stop performance profiling and display results",
+            usage: "stop profiling",
+            examples: vec!["stop profiling"],
+            category: "performance"
+        },
+        CommandHelp {
+            command: "plot metrics",
+            description: "Generate visualizations of performance metrics",
+            usage: "plot metrics \"output_path.svg\"",
+            examples: vec!["plot metrics \"reports/training_metrics.svg\""],
+            category: "performance"
+        },
+        CommandHelp {
+            command: "set log_level",
+            description: "Set the logging verbosity level",
+            usage: "set log_level trace|debug|info|warning|error|fatal",
+            examples: vec![
+                "set log_level debug",
+                "set log_level error"
+            ],
+            category: "performance"
+        },
+        
+        // === Plugins ===
+        CommandHelp {
+            command: "plugin list",
+            description: "List all available plugins",
+            usage: "plugin list",
+            examples: vec!["plugin list"],
+            category: "plugins"
+        },
+        CommandHelp {
+            command: "plugin info",
+            description: "Display information about a specific plugin",
+            usage: "plugin info <plugin_id>",
+            examples: vec![
+                "plugin info image_processing",
+                "plugin info nlp"
+            ],
+            category: "plugins"
+        },
+        CommandHelp {
+            command: "plugin enable",
+            description: "Enable a plugin",
+            usage: "plugin enable <plugin_id>",
+            examples: vec!["plugin enable visualization"],
+            category: "plugins"
+        },
+        CommandHelp {
+            command: "plugin disable",
+            description: "Disable a plugin",
+            usage: "plugin disable <plugin_id>",
+            examples: vec!["plugin disable heavy_computation"],
+            category: "plugins"
+        },
+        CommandHelp {
+            command: "execute plugin",
+            description: "Run a command using a specific plugin",
+            usage: "execute plugin <plugin_id> <command> [args...]",
+            examples: vec!["execute plugin image_tools rotate image.jpg 90"],
+            category: "plugins"
+        },
+        CommandHelp {
+            command: "nlp tokenize",
+            description: "Tokenize text using NLP plugin",
+            usage: "nlp tokenize \"Your text here\"",
+            examples: vec!["nlp tokenize \"The quick brown fox jumps over the lazy dog\""],
+            category: "plugins"
+        },
+        CommandHelp {
+            command: "nlp analyze_sentiment",
+            description: "Analyze sentiment of text using NLP plugin",
+            usage: "nlp analyze_sentiment \"Your text here\"",
+            examples: vec!["nlp analyze_sentiment \"I really enjoyed the movie, it was fantastic!\""],
+            category: "plugins"
+        },
+        CommandHelp {
+            command: "img resize",
+            description: "Resize an image using the image processing plugin",
+            usage: "img resize \"input.jpg\" width height \"output.jpg\"",
+            examples: vec!["img resize \"photo.jpg\" 800 600 \"photo_resized.jpg\""],
+            category: "plugins"
+        },
+        CommandHelp {
+            command: "mm load",
+            description: "Load multimodal data (e.g., images)",
+            usage: "mm load \"image.jpg\" [dataset_name]",
+            examples: vec![
+                "mm load \"photos/cat.jpg\"",
+                "mm load \"data/images/sample.png\" image_dataset"
+            ],
+            category: "plugins"
+        },
+        
+        // === System ===
+        CommandHelp {
+            command: "exit",
+            description: "Exit the Luma REPL",
+            usage: "exit",
+            examples: vec!["exit"],
+            category: "system"
+        },
+        CommandHelp {
+            command: "help",
+            description: "Display help information",
+            usage: "help [command|category]",
+            examples: vec![
+                "help",
+                "help train",
+                "help data",
+                "help performance"
+            ],
+            category: "system"
+        },
+    ]
+}
+
+// ฟังก์ชันค้นหาคำสั่งที่ใกล้เคียง
+fn find_similar_commands<'a>(input: &'a str, all_commands: &'a [CommandHelp]) -> Vec<&'a str> {
+    let input_lower = input.to_lowercase();
+    all_commands.iter()
+        .filter(|cmd| cmd.command.to_lowercase().contains(&input_lower) || 
+                       input_lower.contains(&cmd.command.to_lowercase()))
+        .map(|cmd| cmd.command)
+        .collect()
+}
+
+// ฟังก์ชันสำหรับแสดงความช่วยเหลือ
+fn show_help(args: &[String]) {
+    let all_commands = get_command_help();
+    
+    // ตรวจสอบว่ามีการระบุคำสั่งหรือหมวดหมู่เฉพาะหรือไม่
+    if args.is_empty() {
+        println!("Available commands (type 'help <command>' for details):");
+        
+        // แสดงคำสั่งตามหมวดหมู่
+        println!("\n=== Data Management ===");
+        for cmd in all_commands.iter().filter(|c| c.category == "data") {
+            println!("  {:<25} - {}", cmd.command, cmd.description);
+        }
+        
+        println!("\n=== Model Training & Evaluation ===");
+        for cmd in all_commands.iter().filter(|c| c.category == "model") {
+            println!("  {:<25} - {}", cmd.command, cmd.description);
+        }
+        
+        println!("\n=== Performance & Optimization ===");
+        for cmd in all_commands.iter().filter(|c| c.category == "performance") {
+            println!("  {:<25} - {}", cmd.command, cmd.description);
+        }
+        
+        println!("\n=== Plugins ===");
+        for cmd in all_commands.iter().filter(|c| c.category == "plugins") {
+            println!("  {:<25} - {}", cmd.command, cmd.description);
+        }
+        
+        println!("\n=== System ===");
+        for cmd in all_commands.iter().filter(|c| c.category == "system") {
+            println!("  {:<25} - {}", cmd.command, cmd.description);
+        }
+        
+        println!("\nFor more details about a specific command, type 'help <command>'");
+        println!("For help on a category, type 'help <category>' (e.g., 'help data')");
+    } else {
+        let topic = &args[0].to_lowercase();
+        
+        // ตรวจสอบว่าเป็นหมวดหมู่หรือไม่
+        if ["data", "model", "performance", "plugins", "system"].contains(&topic.as_str()) {
+            let category = topic.as_str();
+            println!("=== {} Commands ===", category.to_uppercase());
+            
+            for cmd in all_commands.iter().filter(|c| c.category == category) {
+                println!("\n{} - {}", cmd.command, cmd.description);
+                println!("  Usage: {}", cmd.usage);
+                if !cmd.examples.is_empty() {
+                    println!("  Examples:");
+                    for example in &cmd.examples {
+                        println!("    {}", example);
+                    }
+                }
+            }
+        } else {
+            // ค้นหาคำสั่งที่ตรงกับคำขอ
+            let matching_commands: Vec<&CommandHelp> = all_commands.iter()
+                .filter(|c| c.command.to_lowercase() == *topic)
+                .collect();
+            
+            if !matching_commands.is_empty() {
+                let cmd = matching_commands[0];
+                println!("{} - {}", cmd.command, cmd.description);
+                println!("  Category: {}", cmd.category);
+                println!("  Usage: {}", cmd.usage);
+                if !cmd.examples.is_empty() {
+                    println!("  Examples:");
+                    for example in &cmd.examples {
+                        println!("    {}", example);
+                    }
+                }
+            } else {
+                // หากไม่พบคำสั่งที่ตรงกัน ค้นหาคำสั่งที่คล้ายกัน
+                let similar = find_similar_commands(topic, &all_commands);
+                println!("Unknown command or category: '{}'", topic);
+                
+                if !similar.is_empty() {
+                    println!("Did you mean one of these?");
+                    for cmd in similar {
+                        println!("  {}", cmd);
+                    }
+                }
+                
+                println!("\nType 'help' for a list of all available commands");
+            }
+        }
+    }
+}
+
+// เวอร์ชันปัจจุบันของ Luma
+const LUMA_VERSION: &str = "1.0.0";
+const LUMA_BUILD_DATE: &str = "2025-05-15";
+
 pub fn start_repl() {
-    println!("Luma REPL v1.0.0 (type 'help' for commands, 'exit' to quit)");
+    println!("Luma REPL v{} (type 'help' for commands, 'exit' to quit)", LUMA_VERSION);
     loop {
         print!("Luma> ");
         io::stdout().flush().unwrap();
@@ -105,8 +492,23 @@ pub fn start_repl() {
             break;
         }
 
-        if input == "help" {
-            show_help();
+        if input == "version" {
+            println!("Luma Framework v{} (built on {})", LUMA_VERSION, LUMA_BUILD_DATE);
+            continue;
+        }
+        
+        if input.starts_with("help") {
+            let parts: Vec<String> = input.split_whitespace()
+                .map(|s| s.to_string())
+                .collect();
+            
+            // ส่งคำขอความช่วยเหลือเฉพาะ (ถ้ามี) ไปยังฟังก์ชัน
+            if parts.len() > 1 {
+                let args = parts[1..].to_vec();
+                show_help(&args);
+            } else {
+                show_help(&[]);
+            }
             continue;
         }
 
@@ -137,11 +539,11 @@ pub fn start_repl() {
             continue;
         }
 
-        // Debug: แสดงคำสั่งที่รับมา
-        println!("Debug: Received {} parts in command", parts.len());
-        for (i, p) in parts.iter().enumerate() {
-            println!("Debug: Part {}: '{}'", i, p);
-        }
+        // Debug mode: uncomment to show parsed command details
+        // println!("Debug: Received {} parts in command", parts.len());
+        // for (i, p) in parts.iter().enumerate() {
+        //     println!("Debug: Part {}: '{}'", i, p);
+        // }
 
         let command = parts[0].as_str();
         match command {
@@ -1111,7 +1513,22 @@ pub fn start_repl() {
                     Err(e) => println!("Error executing Multi-Modal plugin: {}", e),
                 }
             },
-            _ => println!("Unknown command: '{}'. Type 'help' for available commands.", command),
+            _ => {
+                // หาคำสั่งที่ใกล้เคียงเพื่อให้คำแนะนำที่ดีขึ้น
+                let all_commands = get_command_help();
+                let similar_commands = find_similar_commands(command, &all_commands);
+                
+                println!("Unknown command: '{}'", command);
+                
+                if !similar_commands.is_empty() {
+                    println!("Did you mean one of these?");
+                    for cmd in similar_commands.iter().take(3) {
+                        println!("  {}", cmd);
+                    }
+                }
+                
+                println!("Type 'help' for a list of all available commands");
+            },
         }
         io::stdout().flush().unwrap();
     }
