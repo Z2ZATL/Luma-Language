@@ -121,17 +121,17 @@ mod tests {
         
         #[test]
         fn test_basic_training() {
-            // Create test data
+            // Create test data (flattened to match Tensor requirements)
             let input_data = vec![
-                vec![0.1, 0.2, 0.3],
-                vec![0.4, 0.5, 0.6],
-                vec![0.7, 0.8, 0.9],
+                0.1, 0.2, 0.3,  // First sample
+                0.4, 0.5, 0.6,  // Second sample
+                0.7, 0.8, 0.9,  // Third sample
             ];
             
             let labels = vec![
-                vec![0.0, 1.0],
-                vec![1.0, 0.0],
-                vec![0.0, 1.0],
+                0.0, 1.0,  // First label
+                1.0, 0.0,  // Second label
+                0.0, 1.0,  // Third label
             ];
             
             // Create neural network
@@ -142,9 +142,9 @@ mod tests {
             let batch_size = 1;
             let learning_rate = 0.01;
             
-            // Convert to tensors
-            let input_tensor = Tensor::new(input_data.clone(), vec![3, 3]);
-            let label_tensor = Tensor::new(labels.clone(), vec![3, 2]);
+            // Create tensors with correct shapes
+            let input_tensor = Tensor::new(input_data, vec![3, 3]);
+            let label_tensor = Tensor::new(labels, vec![3, 2]);
             
             // Train model
             let result = trainers::train_model(&mut model, &input_tensor, &label_tensor, epochs, batch_size, learning_rate);
