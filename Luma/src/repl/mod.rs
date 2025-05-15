@@ -1232,7 +1232,7 @@ pub fn start_repl() {
                         
                         // Export the model to the specified format and path
                         match exporters::export_model(&model, format, path) {
-                            Ok(output_path) => println!("Model exported successfully to {} format at {}", format, output_path),
+                            Ok(output_path) => println!("Model exported successfully to {} format at {}", format, &output_path),
                             Err(e) => println!("Error exporting model: {}", e),
                         }
                     } else {

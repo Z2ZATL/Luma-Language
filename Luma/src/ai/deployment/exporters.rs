@@ -4,24 +4,6 @@ use std::path::Path;
 use crate::ai::models::advanced::NeuralNetwork;
 use crate::ai::deployment::deployers::{SerializedModel, SerializedLayer, ModelMetadata};
 
-/// Export a model to the specified format and file path
-pub fn export_model(model: &NeuralNetwork, format: &str, output_path: &str) -> Result<(), String> {
-    // Parse the export format
-    let export_format = ExportFormat::from_string(format)?;
-    
-    // In a real implementation, this would convert the model to the specified format
-    // For testing purposes, we'll just create an empty file
-    println!("Exporting model '{}' to {} format at {}", 
-             model.id, format, output_path);
-    
-    // Create a dummy file for testing
-    let path = Path::new(output_path);
-    File::create(path).map_err(|e| format!("Failed to create file: {}", e))?;
-    
-    // Return success
-    Ok(())
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExportFormat {
     ONNX,

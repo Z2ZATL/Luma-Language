@@ -1,0 +1,19 @@
+ir_version: 7
+producer_name: "Luma"
+model_version: 1
+doc_string: "Exported from Luma - Model ID: export_test_model"
+graph {{
+  name: "export_test_model"
+  node {
+    name: "layer_0"
+    op_type: "FC"
+    input: "input_0"
+    output: "output_0"
+  }}
+  node {
+    name: "layer_1"
+    op_type: "Sigmoid"
+    input: "input_1"
+    output: "output_1"
+  }}
+}}
