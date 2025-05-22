@@ -1,0 +1,13 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: Luma
+Description: High-performance AI/ML framework with Rust core
+Version: @PROJECT_VERSION@
+URL: https://github.com/luma-ai/luma
+Requires: 
+Libs: -L${libdir} -lluma -lpthread
+Libs.private: -lm -ldl
+Cflags: -I${includedir}

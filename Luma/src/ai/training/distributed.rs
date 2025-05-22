@@ -1,7 +1,15 @@
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 pub fn parallel_process(data: &[f64]) -> Vec<f64> {
-    data.par_iter().map(|x| *x * 2.0).collect() // Parallel computation
+    #[cfg(feature = "parallel")]
+    {
+        data.par_iter().map(|x| *x * 2.0).collect() // Parallel computation
+    }
+    #[cfg(not(feature = "parallel"))]
+    {
+        data.iter().map(|x| *x * 2.0).collect() // Sequential computation
+    }
 }
 
 /// Distributes training across multiple threads
@@ -10,13 +18,24 @@ pub fn distributed_train(data: &[f64], labels: &[f64]) -> Result<Vec<f64>, Strin
         return Err("Data and labels must have the same length".to_string());
     }
 
-    let weights: Vec<f64> = data
-        .par_iter()
-        .zip(labels.par_iter())
-        .map(|(x, y)| x * y) // Simple weight update
-        .collect();
-
-    Ok(weights)
+    #[cfg(feature = "parallel")]
+    {
+        let weights: Vec<f64> = data
+            .par_iter()
+            .zip(labels.par_iter())
+            .map(|(x, y)| x * y) // Simple weight update
+            .collect();
+        Ok(weights)
+    }
+    #[cfg(not(feature = "parallel"))]
+    {
+        let weights: Vec<f64> = data
+            .iter()
+            .zip(labels.iter())
+            .map(|(x, y)| x * y) // Simple weight update
+            .collect();
+        Ok(weights)
+    }
 }
 
 #[cfg(test)]
