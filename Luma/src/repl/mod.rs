@@ -475,9 +475,11 @@ const LUMA_VERSION: &str = "1.0.0";
 const LUMA_BUILD_DATE: &str = "2025-05-15";
 
 // Global debug mode state
+#[allow(dead_code)]
 static mut DEBUG_MODE: bool = false;
 
 // Macro สำหรับ debug output
+#[allow(unused_macros)]
 macro_rules! debug_print {
     ($($arg:tt)*) => {
         unsafe {
