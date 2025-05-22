@@ -575,7 +575,7 @@ pub fn start_repl() {
                             println!("🔧 Debug mode: OFF");
                         },
                         _ => {
-                            println!("Usage: D ON | D OFF");
+                            println!("Please use: D ON or D OFF");
                         }
                     }
                 } else {
@@ -844,7 +844,7 @@ pub fn start_repl() {
                                 Err(e) => println!("Failed to export model: {}", e),
                             }
                         } else {
-                            println!("Usage: wasm export model=\"model_name\" path=\"output_path\" [opt=0-3] [debug=true|false]");
+                            println!("Please provide model and path parameters");
                         }
                     },
                     "optimize" => {
@@ -1331,7 +1331,7 @@ pub fn start_repl() {
                         }
                     }
                 } else {
-                    println!("Usage: start profiling");
+                    println!("Command: start profiling");
                 }
             },
             "stop" => {
