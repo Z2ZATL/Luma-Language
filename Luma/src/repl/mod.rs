@@ -474,6 +474,20 @@ fn show_help(args: &[String]) {
 const LUMA_VERSION: &str = "1.0.0";
 const LUMA_BUILD_DATE: &str = "2025-05-15";
 
+// Global debug mode state
+static mut DEBUG_MODE: bool = false;
+
+// Macro สำหรับ debug output
+macro_rules! debug_print {
+    ($($arg:tt)*) => {
+        unsafe {
+            if DEBUG_MODE {
+                println!("Debug: {}", format!($($arg)*));
+            }
+        }
+    };
+}
+
 pub fn start_repl() {
     println!("Luma REPL v{} (type 'help' for commands, 'exit' to quit)", LUMA_VERSION);
     loop {
@@ -539,14 +553,35 @@ pub fn start_repl() {
             continue;
         }
 
-        // Debug mode: uncomment to show parsed command details
-        // println!("Debug: Received {} parts in command", parts.len());
-        // for (i, p) in parts.iter().enumerate() {
-        //     println!("Debug: Part {}: '{}'", i, p);
-        // }
+        // Debug output using the debug_print macro
+        debug_print!("Received {} parts in command", parts.len());
+        for (i, p) in parts.iter().enumerate() {
+            debug_print!("Part {}: '{}'", i, p);
+        }
 
         let command = parts[0].as_str();
         match command {
+            "d" | "D" => {
+                if parts.len() >= 2 {
+                    match parts[1].to_lowercase().as_str() {
+                        "on" => {
+                            unsafe { DEBUG_MODE = true; }
+                            println!("🔧 Debug mode: ON");
+                        },
+                        "off" => {
+                            unsafe { DEBUG_MODE = false; }
+                            println!("🔧 Debug mode: OFF");
+                        },
+                        _ => {
+                            println!("Usage: D ON | D OFF");
+                        }
+                    }
+                } else {
+                    unsafe {
+                        println!("🔧 Debug mode: {}", if DEBUG_MODE { "ON" } else { "OFF" });
+                    }
+                }
+            },
             "tensorflow" | "tf" => {
                 // TensorFlow integration commands
                 if parts.len() < 2 {
@@ -969,21 +1004,21 @@ pub fn start_repl() {
             },
             "preprocess" => {
                 // 1. ตรวจสอบรูปแบบคำสั่ง "preprocess dataset_name method=normalize as new_name"
-                println!("Debug: Preprocessing with {} parts", parts.len());
+                debug_print!("Preprocessing with {} parts", parts.len());
                 if parts.len() == 5 && parts[3] == "as" {
                     // 2. ดึงข้อมูลจากคำสั่ง
                     let dataset_name = parts[1].trim_matches('"');
                     let method_part = &parts[2];
                     let output_name = parts[4].trim_matches('"');
                     
-                    println!("Debug: Preprocessing dataset='{}', method='{}', output='{}'", 
+                    debug_print!("Preprocessing dataset='{}', method='{}', output='{}'", 
                              dataset_name, method_part, output_name);
                     
                     // 3. ตรวจสอบว่า method มีรูปแบบถูกต้อง
                     if method_part.starts_with("method=") {
                         // 4. ดึงรายละเอียดวิธีการ
                         let method_name = &method_part["method=".len()..];
-                        println!("Debug: Using method '{}'", method_name);
+                        debug_print!("Using method '{}'", method_name);
                         
                         // 5. แปลงเป็น enum PreprocessingMethod ตามที่ระบุ
                         let method = match method_name {
@@ -998,7 +1033,7 @@ pub fn start_repl() {
                         };
                         
                         // 6. เรียกฟังก์ชัน preprocess_dataset
-                        println!("Debug: Calling preprocess_dataset with {} and output {}", dataset_name, output_name);
+                        debug_print!("Calling preprocess_dataset with {} and output {}", dataset_name, output_name);
                         match preprocessors::preprocess_dataset(dataset_name, method, Some(output_name)) {
                             Ok(name) => println!("Created preprocessed dataset '{}'", name),
                             Err(e) => println!("Error preprocessing dataset: {}", e),
