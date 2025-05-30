@@ -1,7 +1,5 @@
 # Luma: Illuminating AI for Everyone
 
-![Luma Logo (Placeholder - Imagine a glowing, insightful AI icon)](https://via.placeholder.com/150/0A2342/FFFFFF?text=Luma)
-
 Luma is a groundbreaking AI framework and programming language crafted in **Rust**, designed to make the complexities of Artificial Intelligence development accessible, efficient, and intuitive for everyone. With its natural-language-like Domain-Specific Language (DSL), Luma aims to democratize AI, enabling both seasoned developers and new learners to build, train, and deploy sophisticated AI models with unprecedented ease.
 
 ## ✨ Why Luma?
